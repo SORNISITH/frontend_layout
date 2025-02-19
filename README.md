@@ -1,4 +1,6 @@
 ---
+template frontend_generator
+---
 
 ## Introduction
 
