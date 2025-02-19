@@ -78,8 +78,9 @@ npm run dev
       "vite": "^6.1.0"
     }
   }
-
-</details> ```
+```
+  ```
+</details>
 
 ## License
 
