@@ -80,7 +80,7 @@ npm run dev
   }
 ```
   ```
-</details>
+</details> ```
 
 ## License
 
