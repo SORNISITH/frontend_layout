@@ -6,21 +6,16 @@ This is a starter template for a modern React project, utilizing a variety of to
 ## Table of Contents
 - [Introduction](#introduction)
 - [Installation](#installation)
-- [Usage](#usage)
-  - [Development](#development)
-  - [Build](#build)
-  - [Lint](#lint)
-  - [Preview](#preview)
-- [Dependencies](#dependencies)
-- [Dev Dependencies](#dev-dependencies)
 - [Features](#features)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Installation
 To set up the project, clone the repository and install the dependencies:
 
 ```bash
-git clone <repository-url>
-cd <project-directory>
+git clone https://github.com/SORNISITH/frontend_generator.git
+cd frontend_generator
+
 npm install
+
+```bash
