@@ -1,10 +1,10 @@
 ---
-template frontend_generator
+frontend_template
 ---
 
 ## Introduction
 
-This is a starter template for a modern React project, utilizing a variety of tools like Vite, Chakra UI, Tailwind CSS, and ESLint.
+This is a starter template for a modern React project, utilizing a variety of tools like Vite, Tailwind CSS, and ESLint.
 
 ## Installation
 
@@ -49,8 +49,6 @@ npm run dev
       "preview": "vite preview"
     },
     "dependencies": {
-      "@chakra-ui/react": "^3.8.0",
-      "@emotion/react": "^11.14.0",
       "@tailwindcss/vite": "^4.0.6",
       "axios": "^1.7.9",
       "clsx": "^2.1.1",
