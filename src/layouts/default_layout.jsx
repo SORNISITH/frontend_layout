@@ -38,7 +38,7 @@ function Nav_Layout() {
 }
 function Main_Layout() {
   return (
-    <section className="w-full  flex flex-col just items-center bg-zinc-50">
+    <section className="w-full  flex flex-col justify-center items-center bg-zinc-50">
       <ResponsiveLayout>
         <MainRoute />
       </ResponsiveLayout>

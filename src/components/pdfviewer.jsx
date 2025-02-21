@@ -1,7 +1,7 @@
 // npm install pdfjs-dist --save-dev
 //
 import * as pdfjsLib from "pdfjs-dist";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, use } from "react";
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 
@@ -10,20 +10,32 @@ async function loadPdf(url) {
   const PDF = await pdf.promise;
   return PDF;
 }
+
 export default function PdfViewer() {
+  const canvasRef = useRef(null);
+  const [pdfDoc, setPdfDoc] = useState(null);
+  const [totalPage, setTotalPage] = useState(null);
+  const [pdfPage, setPdfPage] = useState(null);
+  const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
+  const [pageNumber, setPageNumber] = useState(null);
+  const [scale, setScale] = useState(1);
   // point to canvas for display PDF
 
-  const url = "/Eloquent_JavaScript.pdf";
-  const canvasRef = useRef(null);
-  const scale = 1;
-  const pageNumber = 1;
-
-  async function PAGE(n, url, scale) {
+  async function LOAD_PDF(url) {
+    if (!url) return;
     const _pdf = await loadPdf(url);
-    const _page = await _pdf.getPage(n);
+    setPdfDoc(_pdf);
+    setPageNumber(1);
+  }
+  async function LOAD_PAGE(n) {
+    if (!pdfDoc || !pageNumber) return;
+    const _page = await pdfDoc.getPage(n);
+    setPdfPage(_page);
+  }
 
-    const viewport = _page.getViewport({ scale: scale });
-
+  async function RENDER_PAGE(scale) {
+    if (!pdfPage) return;
+    const viewport = pdfPage.getViewport({ scale: scale });
     const canvas = canvasRef.current;
     if (!canvas) return;
     const context = canvas.getContext("2d");
@@ -36,19 +48,65 @@ export default function PdfViewer() {
       viewport: viewport,
     };
 
-    await _page.render(renderContext).promise;
+    pdfPage.render(renderContext);
   }
   useEffect(() => {
-    PAGE(pageNumber, url, scale);
-  }, []);
+    try {
+      LOAD_PDF(url);
+    } catch (error) {
+      console.log("error loading PDF DOC : " + error);
+    }
+  }, [url]);
+
+  useEffect(() => {
+    try {
+      LOAD_PAGE(pageNumber);
+      RENDER_PAGE(scale);
+    } catch (error) {
+      console.log("error loading Page : " + error);
+    }
+  }, [pageNumber]);
+  useEffect(() => {
+    try {
+      RENDER_PAGE(scale);
+    } catch (error) {
+      console.log("error render Page : " + error);
+    }
+  }, [scale]);
+
   return (
-    <div className="h-full">
-      <h1 className="text-2xl  ">pdf viewer</h1>
-      <canvas
-        className="overflow-scroll"
-        ref={canvasRef}
-        id="canvas-pdf"
-      ></canvas>
+    <div className="h-full w-full  flex flex-col justify-center items-center overflow-scroll">
+      <div>
+        <h1 className="text-2xl  ">pdf viewer</h1>
+        <button
+          onClick={() =>
+            setUrl("/Learning the bash Shell, 3rd Edition (3).pdf")
+          }
+          className="cursor-pointer active:bg-red-400 p-2 outline-1 hover:bg-amber-400"
+        >
+          change page
+        </button>
+
+        <button
+          onClick={() => setPageNumber((pageNumber) => pageNumber + 1)}
+          className="cursor-pointer active:bg-red-400 p-2 outline-1 hover:bg-amber-400"
+        >
+          get page
+        </button>
+        <button
+          onClick={() => setScale((scale) => scale + 0.2)}
+          className="cursor-pointer active:bg-red-400 p-2 outline-1 hover:bg-amber-400"
+        >
+          +
+        </button>
+        <button
+          onClick={() => setScale((scale) => scale - 0.2)}
+          className="cursor-pointer active:bg-red-400 p-2 outline-1 hover:bg-amber-400"
+        >
+          -
+        </button>
+      </div>
+      <canvas ref={canvasRef} id="canvas-pdf" className="shadow-md"></canvas>
     </div>
   );
 }
