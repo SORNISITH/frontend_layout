@@ -91,7 +91,7 @@ class PDF_VIEW {
   }
 }
 
-export default function Xy() {
+export default function PdfView() {
   const PDF = new PDF_VIEW();
   const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
   const canvas = useRef([...Array(10)].map(() => createRef()));
