@@ -9,7 +9,6 @@ export default function MainRoute() {
       <Routes>
         <Route path="*" element={<NoteFound />} />
         <Route path="/" element={<MainPage />} />
-        <Route path="/x" element={<h1>main x</h1>} />
       </Routes>
     </>
   );

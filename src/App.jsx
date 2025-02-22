@@ -10,7 +10,7 @@ export default function App() {
   window.addEventListener("load", handleLoad);
 
   return (
-    <div className="w-screen h-screen overflow-hidden ">
+    <div className="w-full h-screen flex flex-col justify-center overflow-hidden ">
       <AppRoute />
     </div>
   );

@@ -1,6 +1,5 @@
 // npm install pdfjs-dist --save-dev
 //
-
 import * as pdfjsLib from "pdfjs-dist";
 import { useEffect, useState, useRef, createRef } from "react";
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -91,8 +90,11 @@ class PDF_VIEW {
   }
 }
 
+/// global this for fix render canvas error
+//-------------------------------------------------------------------------------
+const PDF = new PDF_VIEW();
+
 export default function PdfView() {
-  const PDF = new PDF_VIEW();
   const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
   const canvas = useRef([...Array(10)].map(() => createRef()));
   async function mypdf() {
@@ -105,12 +107,12 @@ export default function PdfView() {
   mypdf();
   return (
     <>
-      <div className="overflow-scroll w-full h-full relative">
+      <div className="w-[100%] h-[100%] flex flex-col items-center  overflow-scroll ">
         <Dashboard />
-        <div className="h-full gap-2   flex flex-col  items-center ">
+        <div className=" gap-2 h-[93%]  flex flex-col  items-center ">
           {canvas.current.map((canvasRef, index) => (
-            <canvas key={index} ref={canvasRef} className="shadow-md " />
-          ))}{" "}
+            <canvas key={index} ref={canvasRef} className="shadow-md  " />
+          ))}
         </div>
       </div>
     </>
@@ -119,7 +121,7 @@ export default function PdfView() {
 
 const Dashboard = () => {
   return (
-    <div className="w-full z-0 sticky bg-zinc-100  top-0  h-20 ">
+    <div className="w-[100%]   bg-zinc-100  h-[7%] ">
       <div className="w-full h-full"></div>
       <hr className="opacity-5" />
     </div>
