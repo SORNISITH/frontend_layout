@@ -1,13 +1,12 @@
 import MainRoute from "@/route/_main_route";
 //  wrap each page responsive iritial size ---------------------------------------
-const ResponsiveLayout = ({ children }) => {
+export const ResponsiveLayout = ({ children }) => {
   return (
-    <div className="2xl:w-[50%] xl:w-[60%] lg:w-[70%] md:w-[80%] h-full  w-[100%]  bg-gray-200  ">
+    <div className="2xl:w-[50%] xl:w-[60%] lg:w-[70%] md:w-[80%] h-full w-[100%] bg-zinc-100  ">
       {children}
     </div>
   );
 };
-
 //--------------------------------------------------------------------------
 export default function Default_Layout() {
   return (
