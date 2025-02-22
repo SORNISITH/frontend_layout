@@ -2,7 +2,7 @@ import MainRoute from "@/route/_main_route";
 //  wrap each page responsive iritial size ---------------------------------------
 const ResponsiveLayout = ({ children }) => {
   return (
-    <div className="2xl:w-[50%] xl:w-[60%] lg:w-[70%] md:w-[80%]  w-[100%] h-[100%]  bg-gray-100    ">
+    <div className="2xl:w-[50%] xl:w-[60%] lg:w-[70%] md:w-[80%]  w-[100%]  h-full   bg-gray-100    ">
       {children}
     </div>
   );
@@ -10,12 +10,10 @@ const ResponsiveLayout = ({ children }) => {
 //--------------------------------------------------------------------------
 export default function Default_Layout() {
   return (
-    <div className=" w-full h-full flex flex-col justify-center items-center">
-      <Gredient_Layout />
+    <div className=" w-full h-full flex flex-col  items-center">
       <Nav_Layout />
       <Main_Layout />
       <Footer_Layout />
-      <Gredient_Layout />
     </div>
   );
 }
@@ -29,8 +27,8 @@ function Gredient_Layout() {
 }
 function Nav_Layout() {
   return (
-    <nav className="shadow-md bg-clip-padding backdrop-filter backdrop-blur-sm bg-opacity-30 w-full h-14 sticky top-0 z-0  flex flex-col justify-center items-center ">
-      <hr className="opacity-10" />
+    <nav className=" h-[7%] z-10 shadow-md bg-clip-padding backdrop-filter backdrop-blur-sm bg-opacity-30 w-full  sticky top-0   flex flex-col justify-center items-center ">
+      <Gredient_Layout />
       <ResponsiveLayout></ResponsiveLayout>
       <hr className="opacity-20" />
     </nav>
@@ -38,7 +36,7 @@ function Nav_Layout() {
 }
 function Main_Layout() {
   return (
-    <section className="w-full  flex flex-col justify-center items-center bg-zinc-50">
+    <section className="w-full h-[86%] flex flex-col overflow-none  items-center  bg-zinc-50">
       <ResponsiveLayout>
         <MainRoute />
       </ResponsiveLayout>
@@ -48,8 +46,14 @@ function Main_Layout() {
 
 function Footer_Layout() {
   return (
-    <footer className="h-20 flex flex-col justify-center items-center w-full ">
-      <ResponsiveLayout></ResponsiveLayout>
+    <footer className="h-[7%]  flex flex-col justify-center items-center w-full ">
+      <ResponsiveLayout>
+        <hr className="opacity-10" />
+
+        <h1>nisith</h1>
+        <h1>footer</h1>
+      </ResponsiveLayout>
+      <Gredient_Layout />
     </footer>
   );
 }
