@@ -1,5 +1,6 @@
 import AppRoute from "./route/_app_route";
 import useGlobalState from "@/global/STATE_USE";
+
 export default function App() {
   const GLOBAL = useGlobalState();
   function handleLoad() {
@@ -10,7 +11,7 @@ export default function App() {
   window.addEventListener("load", handleLoad);
 
   return (
-    <div className="w-full h-screen flex flex-col justify-center overflow-hidden ">
+    <div className="w-screen h-screen flex flex-col justify-center overflow-hidden ">
       <AppRoute />
     </div>
   );

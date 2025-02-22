@@ -105,11 +105,13 @@ export default function PdfView() {
     await PDF.renderPage(canvas.current[0], 1).promise;
   }
   mypdf();
+
   return (
     <>
       <div className="w-[100%] h-[100%] flex flex-col items-center  overflow-scroll ">
         <Dashboard />
         <div className=" gap-2 h-[93%]  flex flex-col  items-center ">
+          {" "}
           {canvas.current.map((canvasRef, index) => (
             <canvas key={index} ref={canvasRef} className="shadow-md  " />
           ))}
