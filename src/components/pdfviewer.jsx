@@ -106,7 +106,7 @@ export default function PdfViewer() {
           -
         </button>
       </div>
-      <canvas ref={canvasRef} id="canvas-pdf" className="shadow-md"></canvas>
+      <canvas ref={canvasRef} id="canvas-pdf" className="shadow-md "></canvas>
     </div>
   );
 }
