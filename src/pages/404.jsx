@@ -1,6 +1,6 @@
 import FuzzyText from "@/jsrepo/FuzzyText/FuzzyText";
 import LetterGlitch from "@/jsrepo/LetterGlitch/LetterGlitch";
-export default function NoteFound() {
+export default function NoteFound({ docName }) {
   return (
     <div className="cursor-pointer  mt-10   flex flex-col justify-center item-center">
       <div className=" h-20  flex justify-center items-center">
@@ -12,7 +12,7 @@ export default function NoteFound() {
         <LetterGlitch />
       </div>
       <div className="flex  justify-center items-center">
-        <h1 className="text-3xl md:text-5xl">Not FOUND</h1>
+        <h1 className="text-3xl md:text-5xl">Not FOUND - {docName}</h1>
       </div>
     </div>
   );
