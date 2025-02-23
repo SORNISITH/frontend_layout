@@ -11,7 +11,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import { useEffect, useState, useRef, createRef } from "react";
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
-
+//init my class
 class PDF_JS_DIST {
   constructor() {
     this.lip = pdfjsLib;
@@ -50,46 +50,50 @@ class PDF_JS_DIST {
   }
 
   async renderPage(canvasRef, pageNumber, scale, rotation) {
-    if (!canvasRef) return;
-    var _page = pageNumber || 1;
-    var _scale = scale || 1;
-    var _rotation = rotation || 0;
-    if (this.page.size === 0) return;
+    try {
+      if (!canvasRef) return;
+      var _page = pageNumber || 1;
+      var _scale = scale || 1;
+      var _rotation = rotation || 0;
+      if (this.page.size === 0) return;
 
-    if (this.pageRendering) {
-      this.pageRendering = _page;
-    } else {
-      this.pageRendering = true;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (this.pageRendering) {
+        this.pageRendering = _page;
+      } else {
+        this.pageRendering = true;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-      const viewport = await this.page
-        .get(_page)
-        .getViewport({ scale: _scale, rotation: _rotation });
-      const context = canvas.getContext("2d");
+        const viewport = await this.page
+          .get(_page)
+          .getViewport({ scale: _scale, rotation: _rotation });
+        const context = canvas.getContext("2d");
 
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.beginPath();
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.beginPath();
 
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-      };
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport,
+        };
 
-      const renderTask = this.page.get(_page).render(renderContext);
-      this.LoadedPage = true;
-      renderTask.promise.then(() => {
-        this.pageRendering = false;
-        if (this.pageNumPending !== null) {
-          // Waited page must be rendered
-          this.renderPage(canvasRef, _page, _scale, _rotation);
-          // Must be set to null to prevent infinite loop
-          this.pageNumPending = null;
-        }
-      });
+        const renderTask = this.page.get(_page).render(renderContext);
+        this.LoadedPage = true;
+        renderTask.promise.then(() => {
+          this.pageRendering = false;
+          if (this.pageNumPending !== null) {
+            // Waited page must be rendered
+            this.renderPage(canvasRef, _page, _scale, _rotation);
+            // Must be set to null to prevent infinite loop
+            this.pageNumPending = null;
+          }
+        });
+      }
+    } catch (error) {
+      console.log(error);
     }
   }
 
@@ -111,12 +115,12 @@ function PdfView({ url }) {
     console.log("loading > " + url);
     canvas.current.clear();
     setPageLoaded(false);
-    addCavas(1);
     await PDF.loadPdf(url);
     await pageRender(1);
   }
 
   async function pageRender(pageNumber, scale, rotation) {
+    renderCanvas(pageNumber);
     await PDF.loadPage(pageNumber);
     await PDF.renderPage(
       canvas.current.get(pageNumber),
@@ -131,23 +135,33 @@ function PdfView({ url }) {
   useEffect(() => {
     loadPdf(url);
   }, [url]);
-  //  addCanvas '
-  function addCavas(pageNumber) {
-    canvas.current.set(pageNumber || 1, createRef());
-  }
 
-  useEffect(() => {
+  //  addCanvas '
+  function renderCanvas(pageNumber) {
+    canvas.current.set(pageNumber || 1, createRef());
     const canvasArr = [];
     for (const [key, ref] of canvas.current) {
       canvasArr.push(<canvas key={key} ref={ref} className="w-full shadow" />);
     }
     setCanvasEelement(canvasArr);
-  }, []);
+  }
+  function clearCanvasAll() {
+    canvas.current.clear();
+    setCanvasEelement([]);
+  }
+  function clearCanvas(pageNumber) {
+    if (pageNumber < 0) return;
+    canvas.current.delete(pageNumber);
+    setCanvasEelement((newArr) =>
+      newArr.filter((_, index) => index !== pageNumber - 1),
+    );
+  }
 
   return (
     <div className="w-[100%] h-[100%] flex flex-col items-center overflow-hidden ">
       <ResponsiveLayout>
-        <Button>clear canvas</Button>
+        <Button onClick={() => renderCanvas(2)}>add canvas</Button>
+        <Button onClick={() => clearCanvas(1)}>clear canvas</Button>
         <Dashboard isPageLoaded={pageLoaded} />
         <div className=" gap-2 h-[93%] w-[100%]  flex flex-col  items-center overflow-scroll ">
           {canvasEelements}
@@ -186,19 +200,29 @@ const Dashboard = ({ isPageLoaded, setUrl }) => {
     </div>
   );
 };
-const List = () => {
+const ListPdf = ({ setUrl }) => {
   const navigate = useNavigate();
+  const getPdf = (url) => {
+    setUrl(url);
+    navigate("/pdfview");
+  };
+  const url1 = "/Eloquent_JavaScript.pdf";
+  const url2 = "/Learning the bash Shell, 3rd Edition (3).pdf";
 
   return (
-    <div className="w-full h-full">
-      <Button>Change url</Button>
-      <Button onClick={() => navigate("/pdfview")}>back</Button>
+    <div className="w-full h-full flex flex-col items-center">
+      <div></div>
+      <div className="flex justify-center">
+        <Button onClick={() => getPdf(url1)}>jsvascript book</Button>
+        <Button onClick={() => getPdf(url2)}>bash book</Button>
+      </div>
     </div>
   );
 };
 
 export default function PdfPage() {
   const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
+  const [page, setPage] = useState(1);
   return (
     <>
       <Routes>
@@ -206,7 +230,7 @@ export default function PdfPage() {
           path="*"
           element={<NoteFound docName="PDF pageview !!" />}
         ></Route>
-        <Route path="list" element={<List setUrl={setUrl} />}></Route>
+        <Route path="list" element={<ListPdf setUrl={setUrl} />}></Route>
         <Route index element={<PdfView url={url} />}></Route>
       </Routes>
     </>
