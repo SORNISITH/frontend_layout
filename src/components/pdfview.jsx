@@ -51,28 +51,32 @@ class PDF_JS_DIST {
   async renderPage(canvasRef, pageNumber, scale, rotation) {
     try {
       if (!canvasRef) return;
-      var _page = pageNumber || 1;
-      var _scale = scale || 1;
-      var _rotation = rotation || 0;
+      let _page = pageNumber || 1;
+      let _scale = scale || 1;
+      let _rotation = rotation || 0;
       if (this.page.size === 0) return;
 
       if (this.pageRendering) {
-        this.pageRendering = _page;
+        this.pageRendering = false;
       } else {
         this.pageRendering = true;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
 
+        const canvas = canvasRef.current;
+        console.log(canvas);
+        if (!(canvas instanceof HTMLCanvasElement)) {
+          console.error(
+            "Stored object is NOT a valid <canvas> element!",
+            canvas,
+          );
+        }
         const viewport = await this.page
           .get(_page)
           .getViewport({ scale: _scale, rotation: _rotation });
+
         const context = canvas.getContext("2d");
 
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.beginPath();
-
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        canvas.height = viewport.height || 1;
+        canvas.width = viewport.width || 1;
 
         const renderContext = {
           canvasContext: context,
@@ -109,57 +113,42 @@ const PDF = new PDF_JS_DIST();
 
 function PdfView({ url }) {
   const [pageLoaded, setPageLoaded] = useState(false);
-  const canvas = useRef(new Map());
-  let defaultLoadPage = 1;
+  const canvasMap = useRef(new Map());
 
-  canvas.current.set(1, createRef());
-  canvas.current.set(2, createRef());
-  console.log(canvas.current.get(1));
+  console.log(canvasMap.current.get(1));
 
+  const ref1 = useRef();
+  const ref2 = useRef();
   // iritail load pdf from url
   useEffect(() => {
     loadPdf(url, 1);
   }, [url]);
 
   async function loadPdf(url) {
-    clearCanvasAll();
-    console.log("loading > " + url);
+    console.log("loading url from > " + url);
     setPageLoaded(false);
     await PDF.loadPdf(url);
     // addCanvas(pageNumber);
-    addCanvas(1);
-    addCanvas(2);
 
-    await loadPage(1);
-    await loadPage(2);
-
-    await renderPage(canvas, 1);
-    await renderPage(canvas, 2);
-  }
-
-  async function loadPage(pageNumber) {
-    await PDF.loadPage(pageNumber);
+    await renderPage(ref1, 1);
+    await renderPage(ref2, 2);
   }
 
   async function renderPage(canvas, pageNumber, scale, rotation) {
-    await PDF.renderPage(
-      canvas.current.get(pageNumber),
-      pageNumber,
-      scale,
-      rotation,
-    );
+    await PDF.loadPage(pageNumber);
+    await PDF.renderPage(canvas, pageNumber, scale, rotation);
     setPageLoaded(true);
   }
 
   //  addCanvas '
   function addCanvas(pageNumber) {
-    canvas.current.set(pageNumber, createRef());
+    canvasMap.current.set(pageNumber, createRef());
   }
   // Function to render canvases
 
   function clearCanvasAll() {
     PDF.clearPage();
-    canvas.current.clear();
+    canvasMap.current.clear();
   }
 
   // function clearCanvas(pageNumber) {
@@ -177,14 +166,8 @@ function PdfView({ url }) {
         <Button onClick={() => clearCanvasAll()}>clear canvas</Button>
         <Dashboard isPageLoaded={pageLoaded} />
         <div className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto ">
-          <canvas
-            ref={canvas.current.get(1)}
-            className="w-[99%] self-center z-0 shadow-md"
-          />
-          <canvas
-            ref={canvas.current.get(2)}
-            className="w-[99%] self-center z-0 shadow-md"
-          />
+          <canvas ref={ref1} className="w-[99%] self-center z-0 shadow-md" />
+          <canvas ref={ref2} className="w-[99%] self-center z-0 shadow-md" />
         </div>
       </ResponsiveLayout>
     </div>
