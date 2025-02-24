@@ -9,15 +9,16 @@ import NoteFound from "@/pages/404";
 import { ResponsiveLayout } from "@/layouts/default_layout";
 import * as pdfjsLib from "pdfjs-dist";
 import { useEffect, useState, useRef, createRef } from "react";
+
+///cdn worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
-//init my class
+// my class
 class PDF_JS_DIST {
   constructor() {
     this.lip = pdfjsLib;
     this.pdf = null;
     this.page = new Map();
-    this.render = null;
 
     // fix error render canvas
     this.pageRendering = false;
@@ -31,7 +32,6 @@ class PDF_JS_DIST {
     if (!this.lip) return;
     try {
       this.pdf = await this.lip.getDocument(url).promise;
-      this.LoadedPDF = true;
     } catch (error) {
       console.error("=> error obj load pdf : " + error);
     }
@@ -43,7 +43,6 @@ class PDF_JS_DIST {
     try {
       const resultLoadPage = await this.pdf.getPage(page);
       this.page.set(page, resultLoadPage);
-      return resultLoadPage;
     } catch (error) {
       console.error("=> error obj load page : " + error);
     }
@@ -81,7 +80,7 @@ class PDF_JS_DIST {
         };
 
         const renderTask = this.page.get(_page).render(renderContext);
-        this.LoadedPage = true;
+
         renderTask.promise.then(() => {
           this.pageRendering = false;
           if (this.pageNumPending !== null) {
@@ -102,26 +101,47 @@ class PDF_JS_DIST {
   }
 }
 
+//WARNING :
+
 /// global this for fix render canvas error
 //-------------------------------------------------------------------------------
 const PDF = new PDF_JS_DIST();
 
 function PdfView({ url }) {
   const [pageLoaded, setPageLoaded] = useState(false);
-  const [canvasEelements, setCanvasEelement] = useState([]);
   const canvas = useRef(new Map());
+  let defaultLoadPage = 1;
+
+  canvas.current.set(1, createRef());
+  canvas.current.set(2, createRef());
+  console.log(canvas.current.get(1));
+
+  // iritail load pdf from url
+  useEffect(() => {
+    loadPdf(url, 1);
+  }, [url]);
 
   async function loadPdf(url) {
+    clearCanvasAll();
     console.log("loading > " + url);
-    canvas.current.clear();
     setPageLoaded(false);
     await PDF.loadPdf(url);
-    await pageRender(1);
+    // addCanvas(pageNumber);
+    addCanvas(1);
+    addCanvas(2);
+
+    await loadPage(1);
+    await loadPage(2);
+
+    await renderPage(canvas, 1);
+    await renderPage(canvas, 2);
   }
 
-  async function pageRender(pageNumber, scale, rotation) {
-    renderCanvas(pageNumber);
+  async function loadPage(pageNumber) {
     await PDF.loadPage(pageNumber);
+  }
+
+  async function renderPage(canvas, pageNumber, scale, rotation) {
     await PDF.renderPage(
       canvas.current.get(pageNumber),
       pageNumber,
@@ -131,40 +151,40 @@ function PdfView({ url }) {
     setPageLoaded(true);
   }
 
-  // iritail load pdf from url
-  useEffect(() => {
-    loadPdf(url);
-  }, [url]);
-
   //  addCanvas '
-  function renderCanvas(pageNumber) {
-    canvas.current.set(pageNumber || 1, createRef());
-    const canvasArr = [];
-    for (const [key, ref] of canvas.current) {
-      canvasArr.push(<canvas key={key} ref={ref} className="w-full shadow" />);
-    }
-    setCanvasEelement(canvasArr);
+  function addCanvas(pageNumber) {
+    canvas.current.set(pageNumber, createRef());
   }
+  // Function to render canvases
+
   function clearCanvasAll() {
+    PDF.clearPage();
     canvas.current.clear();
-    setCanvasEelement([]);
   }
-  function clearCanvas(pageNumber) {
-    if (pageNumber < 0) return;
-    canvas.current.delete(pageNumber);
-    setCanvasEelement((newArr) =>
-      newArr.filter((_, index) => index !== pageNumber - 1),
-    );
-  }
+
+  // function clearCanvas(pageNumber) {
+  //   if (pageNumber < 0) return;
+  //   canvas.current.delete(pageNumber);
+  //   setCanvasElement((newArr) =>
+  //     newArr.filter((_, index) => index !== pageNumber - 1),
+  //   );
+  // }
 
   return (
-    <div className="w-[100%] h-[100%] flex flex-col items-center overflow-hidden ">
+    <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
-        <Button onClick={() => renderCanvas(2)}>add canvas</Button>
-        <Button onClick={() => clearCanvas(1)}>clear canvas</Button>
+        <Button>add canvas</Button>
+        <Button onClick={() => clearCanvasAll()}>clear canvas</Button>
         <Dashboard isPageLoaded={pageLoaded} />
-        <div className=" gap-2 h-[93%] w-[100%]  flex flex-col  items-center overflow-scroll ">
-          {canvasEelements}
+        <div className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto ">
+          <canvas
+            ref={canvas.current.get(1)}
+            className="w-[99%] self-center z-0 shadow-md"
+          />
+          <canvas
+            ref={canvas.current.get(2)}
+            className="w-[99%] self-center z-0 shadow-md"
+          />
         </div>
       </ResponsiveLayout>
     </div>
@@ -174,7 +194,7 @@ function PdfView({ url }) {
 const Dashboard = ({ isPageLoaded, setUrl }) => {
   const navigate = useNavigate();
   return (
-    <div className="w-[100%]   bg-zinc-100 z-10  h-15 shadow-md ">
+    <div className="w-[100%]   bg-zinc-100 z-10  h-15 shadow-lg ">
       <div className="w-full h-full">
         <Button onClick={() => navigate("/")}>Back</Button>
         <Button onClick={() => console.log(PDF.pdf)}>PDF info</Button>
@@ -200,6 +220,7 @@ const Dashboard = ({ isPageLoaded, setUrl }) => {
     </div>
   );
 };
+
 const ListPdf = ({ setUrl }) => {
   const navigate = useNavigate();
   const getPdf = (url) => {
