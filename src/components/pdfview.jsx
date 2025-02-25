@@ -22,12 +22,12 @@ class PDF_JS_DIST {
 
     // fix error render canvas
     this.pageRendering = false;
-    this.pageNumPending = null;
   }
 
   clearPage() {
     this.page.clear();
   }
+
   async loadPdf(url) {
     if (!this.lip) return;
     try {
@@ -39,7 +39,6 @@ class PDF_JS_DIST {
 
   async loadPage(number) {
     const page = number || 1;
-    if (!page) return;
     try {
       const resultLoadPage = await this.pdf.getPage(page);
       this.page.set(page, resultLoadPage);
@@ -50,50 +49,38 @@ class PDF_JS_DIST {
 
   async renderPage(canvasRef, pageNumber, scale, rotation) {
     try {
-      if (!canvasRef) return;
-      let _page = pageNumber || 1;
-      let _scale = scale || 1;
-      let _rotation = rotation || 0;
-      if (this.page.size === 0) return;
-
       if (this.pageRendering) {
-        this.pageRendering = false;
+        console.log("page is busy rendering page: " + pageNumber);
+        return;
       } else {
         this.pageRendering = true;
+        const _canvas = canvasRef.current;
+        const _page = pageNumber || 1;
+        const _scale = scale || 1;
+        const _rotation = rotation || 0;
+        const viewport = await this.page
+          ?.get(_page)
+          ?.getViewport({ scale: _scale, rotation: _rotation });
+        const context = _canvas?.getContext("2d");
+        context.clearRect(0, 0, _canvas?.width, _canvas?.height); // Clear the entire canvas
 
-        const canvas = canvasRef.current;
-        console.log(canvas);
-        if (!(canvas instanceof HTMLCanvasElement)) {
+        if (!(_canvas instanceof HTMLCanvasElement)) {
           console.error(
             "Stored object is NOT a valid <canvas> element!",
-            canvas,
+            _canvas,
           );
         }
-        const viewport = await this.page
-          .get(_page)
-          .getViewport({ scale: _scale, rotation: _rotation });
-
-        const context = canvas.getContext("2d");
-
-        canvas.height = viewport.height || 1;
-        canvas.width = viewport.width || 1;
-
+        _canvas.height = viewport.height || 1;
+        _canvas.width = viewport.width || 1;
         const renderContext = {
           canvasContext: context,
           viewport: viewport,
         };
 
         const renderTask = this.page.get(_page).render(renderContext);
-
-        renderTask.promise.then(() => {
-          this.pageRendering = false;
-          if (this.pageNumPending !== null) {
-            // Waited page must be rendered
-            this.renderPage(canvasRef, _page, _scale, _rotation);
-            // Must be set to null to prevent infinite loop
-            this.pageNumPending = null;
-          }
-        });
+        await renderTask.promise;
+        console.log("finish render page" + _page);
+        this.pageRendering = false;
       }
     } catch (error) {
       console.log(error);
@@ -148,7 +135,6 @@ function PdfView({ url }) {
 
   function clearCanvasAll() {
     PDF.clearPage();
-    canvasMap.current.clear();
   }
 
   // function clearCanvas(pageNumber) {
