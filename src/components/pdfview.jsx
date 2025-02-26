@@ -1,6 +1,16 @@
+function info(...args) {
+  console.log("=> info : ", ...args);
+}
+function err(...args) {
+  console.error("=> error : ", ...args);
+}
+function warn(...args) {
+  console.warn("=> warn : ", ...args);
+}
+function table(obj) {
+  console.table(obj);
+}
 // npm install pdfjs-dist --save-dev
-//
-//
 //@mui
 import { Button, LinearProgress } from "@mui/material";
 //---------------------------------------------------------------------
@@ -33,7 +43,7 @@ class PDF_JS_DIST {
     try {
       this.pdf = await this.lip.getDocument(url).promise;
     } catch (error) {
-      console.error("=> error obj load pdf : " + error);
+      err("=> error obj load pdf : " + error);
     }
   }
 
@@ -43,14 +53,14 @@ class PDF_JS_DIST {
       const resultLoadPage = await this.pdf.getPage(page);
       this.page.set(page, resultLoadPage);
     } catch (error) {
-      console.error("=> error obj load page : " + error);
+      err("=> error obj load page : " + error);
     }
   }
 
   async renderPage(canvasRef, pageNumber, scale, rotation) {
     try {
       if (this.pageRendering) {
-        console.log("page is busy rendering page: " + pageNumber);
+        info("page is busy rendering page: " + pageNumber);
         return;
       } else {
         this.pageRendering = true;
@@ -65,10 +75,7 @@ class PDF_JS_DIST {
         context.clearRect(0, 0, _canvas?.width, _canvas?.height); // Clear the entire canvas
 
         if (!(_canvas instanceof HTMLCanvasElement)) {
-          console.error(
-            "Stored object is NOT a valid <canvas> element!",
-            _canvas,
-          );
+          err("Stored object is NOT a valid <canvas> element!", _canvas);
         }
         _canvas.height = viewport.height || 1;
         _canvas.width = viewport.width || 1;
@@ -79,11 +86,11 @@ class PDF_JS_DIST {
 
         const renderTask = this.page.get(_page).render(renderContext);
         await renderTask.promise;
-        console.log("finish render page" + _page);
+        info("finish render page" + _page);
         this.pageRendering = false;
       }
     } catch (error) {
-      console.log(error);
+      err(error);
     }
   }
 
@@ -99,24 +106,39 @@ class PDF_JS_DIST {
 const PDF = new PDF_JS_DIST();
 
 function PdfView({ url }) {
+  // ------------>
   const [pageLoaded, setPageLoaded] = useState(false);
-  const canvasMap = useRef(new Map());
 
-  console.log(canvasMap.current.get(1));
+  const canvasMaprefs = useRef(new Map());
+  const [canvasNum, setCanvasNum] = useState([]);
+
+  const setCanvasRef = (page) => {
+    canvasMaprefs?.current?.set(page, createRef());
+  };
+  const getCanvasRef = (page) => canvasMaprefs?.current?.get(page);
+  const delCanvasRef = (page) => canvasMaprefs?.current?.delete(page);
+  const clearCanvasRef = () => canvasMaprefs?.current?.clear();
 
   const ref1 = useRef();
   const ref2 = useRef();
-  // iritail load pdf from url
+
+  // init load pdf from url
   useEffect(() => {
-    loadPdf(url, 1);
+    setCanvasRef(1);
+    setCanvasRef(2);
+    setCanvasRef(3);
+
+    loadPdf(url);
   }, [url]);
 
+  table(canvasNum.length);
+
   async function loadPdf(url) {
-    console.log("loading url from > " + url);
+    info("loading url from > " + url);
     setPageLoaded(false);
     await PDF.loadPdf(url);
     // addCanvas(pageNumber);
-
+    // render default -------page
     await renderPage(ref1, 1);
     await renderPage(ref2, 2);
   }
@@ -127,29 +149,11 @@ function PdfView({ url }) {
     setPageLoaded(true);
   }
 
-  //  addCanvas '
-  function addCanvas(pageNumber) {
-    canvasMap.current.set(pageNumber, createRef());
-  }
-  // Function to render canvases
-
-  function clearCanvasAll() {
-    PDF.clearPage();
-  }
-
-  // function clearCanvas(pageNumber) {
-  //   if (pageNumber < 0) return;
-  //   canvas.current.delete(pageNumber);
-  //   setCanvasElement((newArr) =>
-  //     newArr.filter((_, index) => index !== pageNumber - 1),
-  //   );
-  // }
-
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
         <Button>add canvas</Button>
-        <Button onClick={() => clearCanvasAll()}>clear canvas</Button>
+        <Button>clear</Button>
         <Dashboard isPageLoaded={pageLoaded} />
         <div className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto ">
           <canvas ref={ref1} className="w-[99%] self-center z-0 shadow-md" />
@@ -166,8 +170,8 @@ const Dashboard = ({ isPageLoaded, setUrl }) => {
     <div className="w-[100%]   bg-zinc-100 z-10  h-15 shadow-lg ">
       <div className="w-full h-full">
         <Button onClick={() => navigate("/")}>Back</Button>
-        <Button onClick={() => console.log(PDF.pdf)}>PDF info</Button>
-        <Button onClick={() => console.log(PDF.page.get(1))}>Page info</Button>
+        <Button onClick={() => info(PDF.pdf)}>PDF info</Button>
+        <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
         <Button
           onClick={() =>
             setUrl("/Learning the bash Shell, 3rd Edition (3).pdf")
