@@ -110,28 +110,25 @@ function PdfView({ url }) {
   const [pageLoaded, setPageLoaded] = useState(false);
 
   const canvasMaprefs = useRef(new Map());
-  const [canvasNum, setCanvasNum] = useState([]);
+  //watcher
+  const [canvasSize, setCanvasSize] = useState(0);
 
-  const setCanvasRef = (page) => {
-    canvasMaprefs?.current?.set(page, createRef());
+  const renderCanvas = () => {
+    info(canvasSize);
+    for (let i = 1; i <= canvasSize / 2; i++) {
+      addCanvas(i);
+      info(i);
+    }
   };
-  const getCanvasRef = (page) => canvasMaprefs?.current?.get(page);
-  const delCanvasRef = (page) => canvasMaprefs?.current?.delete(page);
-  const clearCanvasRef = () => canvasMaprefs?.current?.clear();
 
-  const ref1 = useRef();
-  const ref2 = useRef();
+  const addCanvas = (pageNumber) => {
+    setCanvasSize((prev) => (prev += 1));
+  };
 
-  // init load pdf from url
-  useEffect(() => {
-    setCanvasRef(1);
-    setCanvasRef(2);
-    setCanvasRef(3);
-
-    loadPdf(url);
-  }, [url]);
-
-  table(canvasNum.length);
+  const setCanvas = (pageNumber) => {
+    canvasMaprefs?.current?.set(pageNumber, createRef());
+  };
+  const getCanvasref = (pageNumber) => canvasMaprefs.current.get(pageNumber);
 
   async function loadPdf(url) {
     info("loading url from > " + url);
@@ -139,31 +136,53 @@ function PdfView({ url }) {
     await PDF.loadPdf(url);
     // addCanvas(pageNumber);
     // render default -------page
-    await renderPage(ref1, 1);
-    await renderPage(ref2, 2);
   }
 
-  async function renderPage(canvas, pageNumber, scale, rotation) {
+  async function renderPage(pageNumber, scale, rotation) {
+    const canvas = getCanvasref(pageNumber);
     await PDF.loadPage(pageNumber);
     await PDF.renderPage(canvas, pageNumber, scale, rotation);
     setPageLoaded(true);
   }
 
+  // init load pdf from url
+  useEffect(() => {
+    loadPdf(url);
+    renderCanvas();
+  }, [url]);
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
-        <Button>add canvas</Button>
+        <Button onClick={() => renderPage(1)}>add canvas 1</Button>
+        <Button onClick={() => renderPage(2)}>add canvas 2</Button>
         <Button>clear</Button>
         <Dashboard isPageLoaded={pageLoaded} />
         <div className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto ">
-          <canvas ref={ref1} className="w-[99%] self-center z-0 shadow-md" />
-          <canvas ref={ref2} className="w-[99%] self-center z-0 shadow-md" />
+          <CavasSize ref={canvasMaprefs} size={canvasSize} />
         </div>
       </ResponsiveLayout>
     </div>
   );
 }
 
+const CavasSize = ({ size, ref }) => {
+  if (!ref) return;
+  if (!size) return;
+  const sz = size / 2;
+  return (
+    <>
+      {Array.from({ length: sz }).map((_, index) => (
+        <>
+          <canvas
+            ref={ref.current.get(index + 1)}
+            key={"CANVASKEY:" + (index + 1)}
+            className="w-[99%] self-center z-0 shadow-md"
+          ></canvas>
+        </>
+      ))}
+    </>
+  );
+};
 const Dashboard = ({ isPageLoaded, setUrl }) => {
   const navigate = useNavigate();
   return (
