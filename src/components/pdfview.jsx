@@ -20,7 +20,7 @@ import NoteFound from "@/pages/404";
 import { ResponsiveLayout } from "@/layouts/default_layout";
 import * as pdfjsLib from "pdfjs-dist";
 import { useEffect, useState, useRef, createRef } from "react";
-
+import clsx from "clsx";
 ///cdn worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
@@ -41,8 +41,10 @@ class PDF_JS_DIST {
 
   async loadPdf(url) {
     if (!this.lip) return;
+    info("fetching ... pdf : " + url);
     try {
       this.pdf = await this.lip.getDocument(url).promise;
+      info("fetching done!");
     } catch (error) {
       err("=> error obj load pdf : " + error);
     }
@@ -51,6 +53,7 @@ class PDF_JS_DIST {
   async loadPage(number) {
     const page = number || 1;
     try {
+      info("Loading page ...");
       const resultLoadPage = await this.pdf.getPage(page);
       this.page.set(page, resultLoadPage);
     } catch (error) {
@@ -61,9 +64,10 @@ class PDF_JS_DIST {
   async renderPage(canvasRef, pageNumber, scale, rotation) {
     try {
       if (this.pageRendering) {
-        info("page is busy rendering page: " + pageNumber);
+        warn("render engine task pending page: " + pageNumber);
         return;
       } else {
+        info("start rendering page : " + pageNumber);
         this.pageRendering = true;
         const _canvas = canvasRef.current;
         const _page = pageNumber || 1;
@@ -87,7 +91,7 @@ class PDF_JS_DIST {
 
         const renderTask = this.page.get(_page).render(renderContext);
         await renderTask.promise;
-        info("finish render page" + _page);
+        info("finish render page : " + _page);
         this.pageRendering = false;
       }
     } catch (error) {
@@ -107,58 +111,144 @@ class PDF_JS_DIST {
 const PDF = new PDF_JS_DIST();
 
 function PdfView({ url }) {
-  // ------------>
+  //check
+  const [isUrlLoaded, setIsUrlLoaded] = useState(false);
+  const [isCanvasLoaded, setIsCanvasLoaded] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
-  const [canvasArray, setCanvasArray] = useState([createRef(), createRef()]);
 
-  const pushCanvasArray = () => {
-    setCanvasArray((prevState) => [...prevState, createRef()]);
-  };
+  const [totalPage, setTotalPage] = useState(0);
+  const [page, setPage] = useState(0);
+  const [pageScale, setPageScale] = useState(2);
+  const [pageRotation, setPagerotation] = useState(0);
+  // ------------>
+  const [canvasArray, setCanvasArray] = useState([]);
 
   //watcher
-  async function loadPdf(url) {
-    info("loading url from > " + url);
+  async function S1_loadPdf(url) {
+    if (isUrlLoaded === true) return;
     setPageLoaded(false);
+    info("loading url from > " + url);
     await PDF.loadPdf(url);
-    await renderPage(1);
-    await renderPage(2);
     // addCanvas(pageNumber);
     // render default -------page
+    // await renderPage(1, pageScale, pageRotation);
+    //
+    return Promise.resolve();
   }
+  const S2_loadCanvasArray = async () => {
+    if (isUrlLoaded === false) return;
+    if (isCanvasLoaded === true) return;
+    setCanvasArray((prevState) => [...prevState, createRef()]);
+    setIsCanvasLoaded(true);
+  };
+
+  const S2_addCanvasArray = () => {
+    if (isUrlLoaded === false) return;
+    setCanvasArray((prevState) => [...prevState, createRef()]);
+  };
+  const S3_reRenderAllPage = async (arr) => {
+    if (isUrlLoaded === false) return;
+    if (isCanvasLoaded === false) return;
+    // for (let i = 0; i < arr.length; i++) {
+    //   await renderPage(i, pageScale, pageRotation);
+    // }
+    await Promise.all(
+      arr.map((_, i) => renderPage(i + 1, pageScale, pageRotation)),
+    );
+    return Promise.resolve();
+  };
+
+  const S3_renderNextPage = async () => {
+    if (isCanvasLoaded === false) return;
+    await renderPage(page, pageScale, pageRotation);
+    // if (canvasArray.length > 0) {
+    //   setTimeout(() => {
+    //     const lastCanvas = document.getElementById(
+    //       `canvas-${canvasArray.length}`,
+    //     );
+    //     if (lastCanvas) {
+    //       lastCanvas.style.position = "relative"; // Ensure it's in the DOM
+    //       lastCanvas.classList.add("opacity-100");
+    //     }
+    //   }, 50); // Short delay to ensure iOS renders first
+    // }
+  };
+
   async function renderPage(pageNumber, scale, rotation) {
     if (!PDF.pdf) return;
-    const canvas = [...canvasArray];
     await PDF.loadPage(pageNumber);
-    await PDF.renderPage(canvas[pageNumber - 1], pageNumber, scale, rotation);
-    setPageLoaded(true);
+    await PDF.renderPage(canvasArray[0], pageNumber, scale, rotation);
   }
-  // init load pdf from url
+  const scrolltolast = (target) => {
+    canvasArray[canvasArray.length - 1].current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  };
+
+  async function initLoadUrl() {
+    const ready = S1_loadPdf(url);
+    ready.then(() => {
+      setIsUrlLoaded(true);
+    });
+  }
+  async function initLoadCanvas() {
+    S2_loadCanvasArray();
+  }
+  async function initLoadAllPage() {
+    const ready = S3_reRenderAllPage(canvasArray);
+    ready.then(() => {
+      setPageLoaded(true);
+    });
+  }
+
   useEffect(() => {
-    loadPdf(url);
+    //  init load pdf from url
+    initLoadUrl();
   }, [url]);
 
   useEffect(() => {
-    const renderTask = async () => {
-      info(canvasArray.length);
-      for (let i = 1; i <= canvasArray.length; i++) {
-        await renderPage(i, 3);
-      }
-    };
-    renderTask();
-  }, [canvasArray.length]);
+    initLoadCanvas();
+  }, [isUrlLoaded]);
+
+  useEffect(() => {
+    initLoadAllPage();
+  }, [isCanvasLoaded]);
+
+  // useEffect(() => {
+  //   S3_renderNextPage();
+  // }, [page]);
+
+  useEffect(() => {
+    initLoadAllPage();
+  }, [pageScale, pageRotation]);
+
+  useEffect(() => {}, [canvasArray]);
 
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
-        <Button onClick={() => pushCanvasArray()}>add canvas 1</Button>
-        <Dashboard isPageLoaded={pageLoaded} />
+        <div className="w-full h-[7%] shadow-md ">
+          <div className="flex justify-center items-center">
+            <Button onClick={() => S2_addCanvasArray()}>add canvas 1</Button>
+            <Button onClick={() => setPagerotation(90)}>roation</Button>
+            <Button onClick={() => scrolltolast()}>scroll</Button>
+            <Button onClick={() => setPage(1)}>test</Button>
+          </div>
+          <div>
+            <Dashboard isPageLoaded={pageLoaded} />
+          </div>
+          <hr className="opacity-5" />
+        </div>
         <div className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto ">
           {canvasArray?.map((ref, index) => (
             <canvas
-              id={index + 1}
+              id={`canvas-${index + 1}`}
               key={index + 1}
               ref={ref}
-              className="w-[99%] shadow-md "
+              className={clsx(
+                " opacity-100 w-[99%] shadow-md transition-all  duration-500 ease-out",
+              )}
             ></canvas>
           ))}
         </div>
@@ -170,7 +260,7 @@ function PdfView({ url }) {
 const Dashboard = ({ isPageLoaded, setUrl }) => {
   const navigate = useNavigate();
   return (
-    <div className="w-[100%]   bg-zinc-100 z-10  h-15 shadow-lg ">
+    <div className="w-[100%]   bg-zinc-100 z-10  h-full  ">
       <div className="w-full h-full">
         <Button onClick={() => navigate("/")}>Back</Button>
         <Button onClick={() => info(PDF.pdf)}>PDF info</Button>
@@ -192,7 +282,6 @@ const Dashboard = ({ isPageLoaded, setUrl }) => {
           }}
         />
       </div>
-      <hr className="opacity-5" />
     </div>
   );
 };
