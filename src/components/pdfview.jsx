@@ -13,6 +13,7 @@ function table(obj) {
 // npm install pdfjs-dist --save-dev
 //@mui
 import { Button, LinearProgress } from "@mui/material";
+import { v4 as uuidv4 } from "uuid";
 //---------------------------------------------------------------------
 import { Routes, Route, useNavigate } from "react-router";
 import NoteFound from "@/pages/404";
@@ -108,81 +109,64 @@ const PDF = new PDF_JS_DIST();
 function PdfView({ url }) {
   // ------------>
   const [pageLoaded, setPageLoaded] = useState(false);
+  const [canvasArray, setCanvasArray] = useState([createRef(), createRef()]);
 
-  const canvasMaprefs = useRef(new Map());
+  const pushCanvasArray = () => {
+    setCanvasArray((prevState) => [...prevState, createRef()]);
+  };
+
   //watcher
-  const [canvasSize, setCanvasSize] = useState(0);
-
-  const renderCanvas = () => {
-    info(canvasSize);
-    for (let i = 1; i <= canvasSize / 2; i++) {
-      addCanvas(i);
-      info(i);
-    }
-  };
-
-  const addCanvas = (pageNumber) => {
-    setCanvasSize((prev) => (prev += 1));
-  };
-
-  const setCanvas = (pageNumber) => {
-    canvasMaprefs?.current?.set(pageNumber, createRef());
-  };
-  const getCanvasref = (pageNumber) => canvasMaprefs.current.get(pageNumber);
-
   async function loadPdf(url) {
     info("loading url from > " + url);
     setPageLoaded(false);
     await PDF.loadPdf(url);
+    await renderPage(1);
+    await renderPage(2);
     // addCanvas(pageNumber);
     // render default -------page
   }
-
   async function renderPage(pageNumber, scale, rotation) {
-    const canvas = getCanvasref(pageNumber);
+    if (!PDF.pdf) return;
+    const canvas = [...canvasArray];
     await PDF.loadPage(pageNumber);
-    await PDF.renderPage(canvas, pageNumber, scale, rotation);
+    await PDF.renderPage(canvas[pageNumber - 1], pageNumber, scale, rotation);
     setPageLoaded(true);
   }
-
   // init load pdf from url
   useEffect(() => {
     loadPdf(url);
-    renderCanvas();
   }, [url]);
+
+  useEffect(() => {
+    const renderTask = async () => {
+      info(canvasArray.length);
+      for (let i = 1; i <= canvasArray.length; i++) {
+        await renderPage(i, 3);
+      }
+    };
+    renderTask();
+  }, [canvasArray.length]);
+
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
-        <Button onClick={() => renderPage(1)}>add canvas 1</Button>
-        <Button onClick={() => renderPage(2)}>add canvas 2</Button>
-        <Button>clear</Button>
+        <Button onClick={() => pushCanvasArray()}>add canvas 1</Button>
         <Dashboard isPageLoaded={pageLoaded} />
         <div className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto ">
-          <CavasSize ref={canvasMaprefs} size={canvasSize} />
+          {canvasArray?.map((ref, index) => (
+            <canvas
+              id={index + 1}
+              key={index + 1}
+              ref={ref}
+              className="w-[99%] shadow-md "
+            ></canvas>
+          ))}
         </div>
       </ResponsiveLayout>
     </div>
   );
 }
 
-const CavasSize = ({ size, ref }) => {
-  if (!ref) return;
-  if (!size) return;
-  const sz = size / 2;
-  return (
-    <>
-      {Array.from({ length: sz }).map((_, index) => (
-        <>
-          <canvas
-            ref={ref.current.get(index + 1)}
-            key={"CANVASKEY:" + (index + 1)}
-            className="w-[99%] self-center z-0 shadow-md"
-          ></canvas>
-        </>
-      ))}
-    </>
-  );
-};
 const Dashboard = ({ isPageLoaded, setUrl }) => {
   const navigate = useNavigate();
   return (
@@ -237,15 +221,10 @@ export default function PdfPage() {
   const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
   const [page, setPage] = useState(1);
   return (
-    <>
-      <Routes>
-        <Route
-          path="*"
-          element={<NoteFound docName="PDF pageview !!" />}
-        ></Route>
-        <Route path="list" element={<ListPdf setUrl={setUrl} />}></Route>
-        <Route index element={<PdfView url={url} />}></Route>
-      </Routes>
-    </>
+    <Routes>
+      <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
+      <Route path="list" element={<ListPdf setUrl={setUrl} />}></Route>
+      <Route index element={<PdfView url={url} />}></Route>
+    </Routes>
   );
 }
