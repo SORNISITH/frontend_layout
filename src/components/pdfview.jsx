@@ -143,7 +143,6 @@ function PdfView({ url }) {
   };
 
   const S2_addCanvasArray = () => {
-    if (isUrlLoaded === false) return;
     setCanvasArray((prevState) => [...prevState, createRef()]);
   };
   const S3_reRenderAllPage = async (arr) => {
@@ -159,8 +158,7 @@ function PdfView({ url }) {
   };
 
   const S3_renderNextPage = async () => {
-    if (isCanvasLoaded === false) return;
-    await renderPage(page, pageScale, pageRotation);
+    await renderPage(canvasArray.length, pageScale, pageRotation);
     // if (canvasArray.length > 0) {
     //   setTimeout(() => {
     //     const lastCanvas = document.getElementById(
@@ -172,6 +170,20 @@ function PdfView({ url }) {
     //     }
     //   }, 50); // Short delay to ensure iOS renders first
     // }
+    //
+    //
+    if (canvasArray.length > 0) {
+      setTimeout(() => {
+        const lastCanvas = document.getElementById(
+          `canvas-${canvasArray.length}`,
+        );
+        if (lastCanvas) {
+          lastCanvas.style.position = "relative";
+          lastCanvas.classList.add("opacity-100");
+        }
+        scrollNextPage(); // ✅ Runs after canvas update
+      }, 50);
+    }
   };
 
   async function renderPage(pageNumber, scale, rotation) {
@@ -179,7 +191,7 @@ function PdfView({ url }) {
     await PDF.loadPage(pageNumber);
     await PDF.renderPage(canvasArray[0], pageNumber, scale, rotation);
   }
-  const scrolltolast = (target) => {
+  const scrollNextPage = () => {
     canvasArray[canvasArray.length - 1].current.scrollIntoView({
       behavior: "smooth",
       block: "center",
@@ -201,7 +213,6 @@ function PdfView({ url }) {
       setPageLoaded(true);
     });
   }
-
   useEffect(() => {
     //  init load pdf from url
     initLoadUrl();
@@ -212,6 +223,7 @@ function PdfView({ url }) {
   }, [isUrlLoaded]);
 
   useEffect(() => {
+    //first load
     initLoadAllPage();
   }, [isCanvasLoaded]);
 
@@ -223,7 +235,9 @@ function PdfView({ url }) {
     initLoadAllPage();
   }, [pageScale, pageRotation]);
 
-  useEffect(() => {}, [canvasArray]);
+  useEffect(() => {
+    S3_renderNextPage();
+  }, [canvasArray]);
 
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
@@ -232,7 +246,7 @@ function PdfView({ url }) {
           <div className="flex justify-center items-center">
             <Button onClick={() => S2_addCanvasArray()}>add canvas 1</Button>
             <Button onClick={() => setPagerotation(90)}>roation</Button>
-            <Button onClick={() => scrolltolast()}>scroll</Button>
+            <Button onClick={() => scrollNextPage()}>scroll</Button>
             <Button onClick={() => setPage(1)}>test</Button>
           </div>
           <div>
