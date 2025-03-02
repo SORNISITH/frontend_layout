@@ -31,7 +31,6 @@ import clsx from "clsx";
 ///cdn worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
-// my class
 class PDF_JS_DIST {
   constructor() {
     this.lip = pdfjsLib;
@@ -40,10 +39,6 @@ class PDF_JS_DIST {
 
     // fix error render canvas
     this.pageRendering = false;
-  }
-
-  clearPage() {
-    this.page.clear();
   }
 
   async loadPdf(_url) {
@@ -112,7 +107,6 @@ class PDF_JS_DIST {
 }
 
 //WARNING :
-
 /// global this for fix render canvas error
 //-------------------------------------------------------------------------------
 const PDF = new PDF_JS_DIST();
@@ -155,7 +149,6 @@ function PdfView({ url }) {
     newArr?.push(createRef());
     setCanvasNextPage(newArr);
     setCanvasArray(newArr);
-
     localStorage.setItem("totalPage", newArr.length);
   };
   const S3_RenderAllPage = async () => {
