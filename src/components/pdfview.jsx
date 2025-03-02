@@ -151,7 +151,7 @@ class PDF_JS_DIST {
 const PDF = new PDF_JS_DIST();
 
 function PdfView({ url }) {
-  let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 0;
+  let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 1;
   let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 3;
   //check step
   const [isPdfReady, setPdfReady] = useState(false);
@@ -165,8 +165,23 @@ function PdfView({ url }) {
   const [pageRotation, setPageRotation] = useState(0);
 
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-
-  const S2_createNextCanvas = () => {};
+  const S3_renderNextPage = async () => {
+    const page = canvasStoreArrayRef.length;
+    if (!isPdfReady) return;
+    if (!isCanvasReady) return;
+    await renderPage(
+      canvasStoreArrayRef[page - 1],
+      page,
+      pageScale,
+      pageRotation,
+    );
+  };
+  const S2_createNextCanvas = () => {
+    if (!isPdfReady) return;
+    setCanvasReady(false);
+    setCanvasStoreArrayRef((prev) => [...prev, createRef()]);
+    setCanvasReady(true);
+  };
   const S3_renderAllPage = async () => {
     if (!isPdfReady) return;
     if (!isCanvasReady) return;
@@ -186,7 +201,6 @@ function PdfView({ url }) {
       }
       return newArr;
     });
-    setCanvasReady(true);
   };
 
   const S1_loadPdf = async (_url) => {
@@ -231,6 +245,16 @@ function PdfView({ url }) {
       }, 50);
     }
   };
+  const lazyLoadPage = new IntersectionObserver(
+    (entries) => {
+      info(entries[0]);
+    },
+    {
+      root: document.getElementById("obs_root"),
+      rootMargin: "0px", // No margin around the root
+      threshold: 0.2,
+    },
+  );
 
   useEffect(() => {
     S1_loadPdf(url);
@@ -241,8 +265,13 @@ function PdfView({ url }) {
   }, [isPdfReady, pageTotal]);
 
   useEffect(() => {
+    setCanvasReady(true);
     S3_renderAllPage();
-  }, [pageScale, pageRotation, isCanvasReady, canvasStoreArrayRef]);
+  }, [pageScale, pageRotation, isCanvasReady]);
+
+  useEffect(() => {
+    S3_renderNextPage();
+  }, [canvasStoreArrayRef]);
 
   useEffect(() => {
     trickgerScroll(pageView);
@@ -256,7 +285,7 @@ function PdfView({ url }) {
             <Button onClick={() => S2_createNextCanvas()}>add canvas 1</Button>
             <Button onClick={() => setPageTotal(10)}>render canvas</Button>
             <Button onClick={() => setPageRotation(90)}>rotation</Button>
-            <Button onClick={() => setPageView(10)}>scroll</Button>
+            <Button onClick={() => setPageView(4)}>scroll</Button>
           </div>
           <div>
             <Dashboard isPageLoaded={isPdfReady} />
