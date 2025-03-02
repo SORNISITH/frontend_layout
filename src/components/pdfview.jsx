@@ -118,17 +118,15 @@ class PDF_JS_DIST {
 const PDF = new PDF_JS_DIST();
 
 function PdfView({ url }) {
-  //check order
-  //
   let defaultTotalPage = localStorage?.getItem("totalPage") || 3;
   let defaultPageView = localStorage?.getItem("viewPage") || 0;
-  let defaultUrl = localStorage?.getItem("url") || "/Eloquent_JavaScript.pdf";
   const [isPdfLoad, setPdfLoad] = useState(false);
   const [isCanvasLoad, setCanvasLoad] = useState(false);
   const [isPageRender, setPageRender] = useState(false);
   //customize canvas behavior
   const [pageScale, setPageScale] = useState(2);
   const [pageRotation, setPagerotation] = useState(0);
+  const [pageIndex, setPageIndex] = useState(defaultTotalPage);
   // ------------>
   const [canvasArray, setCanvasArray] = useState([]);
   const [canvasNextPage, setCanvasNextPage] = useState([]);
@@ -144,7 +142,7 @@ function PdfView({ url }) {
 
   const S2_loadCanvasArray = () => {
     if (!isPdfLoad) return;
-    for (let i = 1; i <= Number(defaultTotalPage); i++) {
+    for (let i = 1; i <= Number(pageIndex); i++) {
       setCanvasArray((prevState) => [...prevState, createRef()]);
     }
     setCanvasLoad(true);
@@ -162,7 +160,6 @@ function PdfView({ url }) {
   };
   const S3_RenderAllPage = async () => {
     setObsFree(false);
-
     for (let i = 1; i <= canvasArray.length; i++) {
       await renderPage(i, pageScale, pageRotation);
     }
@@ -238,6 +235,7 @@ function PdfView({ url }) {
       }
     });
   }, opt_level1);
+
   const lazyOpacity = () => {
     if (canvasArray <= 0) return;
     canvasArray.forEach((element, index) => {
@@ -286,7 +284,7 @@ function PdfView({ url }) {
           <div className="flex justify-center items-center">
             <Button onClick={() => S2_addCanvasArray()}>add canvas 1</Button>
             <Button onClick={() => setPagerotation(90)}>roation</Button>
-            <Button onClick={() => setCanvasLoad(!isCanvasLoad)}>
+            <Button onClick={() => setPageIndex((prev) => prev + 100)}>
               render all page
             </Button>
           </div>
@@ -305,7 +303,7 @@ function PdfView({ url }) {
               key={index + 1}
               ref={ref}
               className={clsx(
-                " opacity-0 w-[99%] shadow-md transition-all  duration-100 ease-in",
+                " opacity-0 w-[99%] shadow-md transition-all  duration-70 ease-in",
               )}
             ></canvas>
           ))}
