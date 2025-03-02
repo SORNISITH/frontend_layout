@@ -12,7 +12,7 @@ function table(obj) {
 }
 const ResponsiveLayout = ({ children }) => {
   return (
-    <div className="2xl:w-[50%] xl:w-[60%] lg:w-[70%] md:w-[80%] h-full w-[100%] bg-zinc-100  ">
+    <div className="2xl:w-[50%] xl:w-[65%] lg:w-[80%] md:w-[99%] h-full w-[100%] bg-zinc-100  ">
       {children}
     </div>
   );
@@ -26,7 +26,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Routes, Route, useNavigate } from "react-router";
 import NoteFound from "@/pages/404";
 import * as pdfjsLib from "pdfjs-dist";
-import { useEffect, useState, useRef, createRef } from "react";
+import { useEffect, useState, useRef, createRef, useCallback } from "react";
 import clsx from "clsx";
 ///cdn worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -40,7 +40,10 @@ class PDF_JS_DIST {
     // fix error render canvas
     this.pageRendering = false;
   }
-
+  cleanPage() {
+    if (!this.page) return;
+    this.page.clear();
+  }
   async loadPdf(_url) {
     if (!this.lip) return;
     info("fetching ... pdf : " + _url);
@@ -94,6 +97,42 @@ class PDF_JS_DIST {
         const renderTask = this.page.get(_page).render(renderContext);
         await renderTask.promise;
         info("finish render page : " + _page);
+
+        // Draw the page number at the bottom-center
+        const text = `Page : ${_page}`;
+        const textWidth = context.measureText(text).width;
+        const textHeight = 16; // Font size
+        const centerX = _canvas.width / 2;
+        const bottomY = _canvas.height - 30; // 20px from the bottom
+
+        // Draw the background (rounded white square)
+        const padding = 15;
+        context.fillStyle = "white";
+        context.beginPath();
+        context.moveTo(
+          centerX - textWidth / 2 - padding,
+          bottomY - textHeight / 2 - padding,
+        );
+        context.lineTo(
+          centerX + textWidth / 2 + padding,
+          bottomY - textHeight / 2 - padding,
+        );
+        context.lineTo(
+          centerX + textWidth / 2 + padding,
+          bottomY + textHeight / 2 + padding,
+        );
+        context.lineTo(
+          centerX - textWidth / 2 - padding,
+          bottomY + textHeight / 2 + padding,
+        );
+        context.closePath();
+        context.fill();
+
+        // Draw the text (black color)
+        context.fillStyle = "black";
+        context.font = "16px Arial"; // Font size
+        context.textAlign = "center";
+        context.fillText(text, centerX, bottomY + 10);
         this.pageRendering = false;
       }
     } catch (error) {
@@ -112,137 +151,85 @@ class PDF_JS_DIST {
 const PDF = new PDF_JS_DIST();
 
 function PdfView({ url }) {
-  let defaultTotalPage = localStorage?.getItem("totalPage") || 3;
-  let defaultPageView = localStorage?.getItem("viewPage") || 0;
-  const [isPdfLoad, setPdfLoad] = useState(false);
-  const [isCanvasLoad, setCanvasLoad] = useState(false);
-  const [isPageRender, setPageRender] = useState(false);
-  //customize canvas behavior
+  let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 0;
+  let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 3;
+  //check step
+  const [isPdfReady, setPdfReady] = useState(false);
+  const [isCanvasReady, setCanvasReady] = useState(false);
+  const [isRenderReady, setRenderReady] = useState(false);
+
+  // Page behav
+  const [pageView, setPageView] = useState(DEFAULT_PAGE_VIEW);
+  const [pageTotal, setPageTotal] = useState(DEFAULT_PAGE_TOTAL);
   const [pageScale, setPageScale] = useState(2);
-  const [pageRotation, setPagerotation] = useState(0);
-  const [pageIndex, setPageIndex] = useState(defaultTotalPage);
-  // ------------>
-  const [canvasArray, setCanvasArray] = useState([]);
-  const [canvasNextPage, setCanvasNextPage] = useState([]);
-  const [obsFree, setObsFree] = useState(false);
-  //watcher
+  const [pageRotation, setPageRotation] = useState(0);
+
+  const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
+
+  const S2_createNextCanvas = () => {};
+  const S3_renderAllPage = async () => {
+    if (!isPdfReady) return;
+    if (!isCanvasReady) return;
+    setRenderReady(false);
+    for (let i = 1; i <= canvasStoreArrayRef.length; i++) {
+      await renderPage(canvasStoreArrayRef[i - 1], i, pageScale, pageRotation);
+    }
+    setRenderReady(true);
+  };
+  const S2_createAllCanvas = () => {
+    if (!isPdfReady) return;
+    setCanvasReady(false);
+    setCanvasStoreArrayRef(() => {
+      const newArr = [];
+      for (let i = 1; i <= pageTotal; i++) {
+        newArr.push(createRef());
+      }
+      return newArr;
+    });
+    setCanvasReady(true);
+  };
+
   const S1_loadPdf = async (_url) => {
-    await PDF?.loadPdf(_url);
+    if (!_url) return;
+
+    setPdfReady(false);
     localStorage.setItem("url", url);
-    setPdfLoad(true);
-    // addCanvas(pageNumber);
-    // render default -------page
+    await PDF?.loadPdf(_url);
+    setPdfReady(true);
   };
 
-  const S2_loadCanvasArray = () => {
-    if (!isPdfLoad) return;
-    for (let i = 1; i <= Number(pageIndex); i++) {
-      setCanvasArray((prevState) => [...prevState, createRef()]);
+  const renderPage = async (canvas, pageNumber, scale, rotation) => {
+    if (!PDF.pdf) return;
+    await PDF.loadPage(pageNumber);
+    await PDF.renderPage(canvas, pageNumber, scale, rotation);
+  };
+
+  const trickgerScroll = (_target) => {
+    const arr = canvasStoreArrayRef;
+    let target = _target;
+    if (target > arr.length) {
+      target = arr.length;
     }
-    setCanvasLoad(true);
-  };
+    if (!arr[target]?.current) return;
+    if (!isRenderReady) return;
 
-  const S2_addCanvasArray = () => {
-    if (!isPdfLoad) return;
-    const newArr = [...canvasArray];
-    // setCanvasArray((prevState) => [...prevState, createRef()]);
-    newArr?.push(createRef());
-    setCanvasNextPage(newArr);
-    setCanvasArray(newArr);
-    localStorage.setItem("totalPage", newArr.length);
-  };
-  const S3_RenderAllPage = async () => {
-    setObsFree(false);
-    for (let i = 1; i <= canvasArray.length; i++) {
-      await renderPage(i, pageScale, pageRotation);
-    }
-    trickgerScroll(defaultPageView);
-    setPageRender(true);
-  };
-
-  const S3_renderNextPage = async () => {
-    setObsFree(true);
-    if (isCanvasLoad === false) return;
-    await renderPage(canvasArray.length, pageScale, pageRotation);
-  };
-
-  const trickgerScroll = (target, block) => {
-    if (target <= 0) return;
+    if (target <= 0 || target > arr.length) return;
     const scrollNextPage = () => {
-      canvasArray[target].current.scrollIntoView({
+      arr[target]?.current?.scrollIntoView({
         behavior: "smooth",
-        block: block ? "center" : "start",
+        block: "start",
       });
     };
-    if (canvasArray.length > 0) {
+    if (arr.length > 0) {
       setTimeout(() => {
-        const lastCanvas = document.getElementById(
-          `canvas-${canvasArray.length}`,
-        );
+        const lastCanvas = document.getElementById(`canvas-${arr.length}`);
         if (lastCanvas) {
           lastCanvas.style.position = "relative";
           lastCanvas.classList.add("opacity-100");
         }
-        scrollNextPage(); // ✅ Runs after canvas update
+        scrollNextPage(); //  Runs after canvas update
       }, 50);
     }
-  };
-
-  const renderPage = async (pageNumber, scale, rotation) => {
-    if (!PDF.pdf) return;
-    await PDF.loadPage(pageNumber);
-    await PDF.renderPage(
-      canvasArray[pageNumber - 1],
-      pageNumber,
-      scale,
-      rotation,
-    );
-  };
-  const opt = {
-    root: document.getElementById("obs_root"),
-    rootMargin: "0px",
-    threshold: 0.3,
-  };
-  const opt_level1 = {
-    root: document.getElementById("obs_root"),
-    rootMargin: "0px",
-    threshold: 0.1,
-  };
-
-  const obs_load = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting == true) {
-      S2_addCanvasArray();
-    }
-  }, opt);
-
-  const obs_opacity = new IntersectionObserver((entries) => {
-    entries.forEach((ele) => {
-      if (ele.isIntersecting) {
-        if (obsFree === true) {
-          const index = ele.target.dataset.index;
-          localStorage.setItem("viewPage", index);
-        }
-        ele.target.style.opacity = "1";
-      } else {
-        ele.target.style.opacity = "0";
-      }
-    });
-  }, opt_level1);
-
-  const lazyOpacity = () => {
-    if (canvasArray <= 0) return;
-    canvasArray.forEach((element, index) => {
-      if (element.current) {
-        element.current.dataset.index = index;
-        obs_opacity.observe(element?.current);
-      }
-    });
-  };
-  const lazyLoadPage = () => {
-    if (isCanvasLoad === false) return;
-    if (canvasArray.length <= 0) return;
-    obs_load.observe(canvasArray[canvasArray.length - 2].current);
-    // canvasArray.forEach((element) => obs.observe(element?.current));
   };
 
   useEffect(() => {
@@ -250,39 +237,29 @@ function PdfView({ url }) {
   }, [url]);
 
   useEffect(() => {
-    S2_loadCanvasArray();
-  }, [isPdfLoad]);
+    S2_createAllCanvas();
+  }, [isPdfReady, pageTotal]);
 
   useEffect(() => {
-    S3_RenderAllPage();
-  }, [isCanvasLoad]);
+    S3_renderAllPage();
+  }, [pageScale, pageRotation, isCanvasReady, canvasStoreArrayRef]);
 
   useEffect(() => {
-    // S3_renderNextPage();
-    S3_renderNextPage();
-  }, [canvasNextPage.length]);
+    trickgerScroll(pageView);
+  }, [pageView, isRenderReady]);
 
-  useEffect(() => {
-    S3_RenderAllPage();
-  }, [pageRotation, pageScale]);
-
-  useEffect(() => {
-    lazyLoadPage();
-    lazyOpacity();
-  }, [canvasArray.length]);
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
         <div className="w-full h-[7%] shadow-md ">
           <div className="flex justify-center items-center">
-            <Button onClick={() => S2_addCanvasArray()}>add canvas 1</Button>
-            <Button onClick={() => setPagerotation(90)}>roation</Button>
-            <Button onClick={() => setPageIndex((prev) => prev + 100)}>
-              render all page
-            </Button>
+            <Button onClick={() => S2_createNextCanvas()}>add canvas 1</Button>
+            <Button onClick={() => setPageTotal(10)}>render canvas</Button>
+            <Button onClick={() => setPageRotation(90)}>rotation</Button>
+            <Button onClick={() => setPageView(10)}>scroll</Button>
           </div>
           <div>
-            <Dashboard isPageLoaded={isPdfLoad} />
+            <Dashboard isPageLoaded={isPdfReady} />
           </div>
           <hr className="opacity-5" />
         </div>
@@ -290,13 +267,13 @@ function PdfView({ url }) {
           id="obs_root"
           className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto "
         >
-          {canvasArray?.map((ref, index) => (
+          {canvasStoreArrayRef?.map((ref, index) => (
             <canvas
               id={`canvas-${index + 1}`}
               key={index + 1}
               ref={ref}
               className={clsx(
-                " opacity-0 w-[99%] shadow-md transition-all  duration-70 ease-in",
+                " opacity-100 w-[99%] shadow-md transition-all  duration-70 ease-in",
               )}
             ></canvas>
           ))}
@@ -339,11 +316,10 @@ const ListPdf = ({ setUrl }) => {
   const navigate = useNavigate();
   const getPdf = (url) => {
     if (url !== localStorage.getItem("url")) {
-      localStorage.setItem("viewPage", 0);
-      localStorage.setItem("totalPage", 3);
+      localStorage.setItem("default_page_view", 0);
+      localStorage.setItem("default_page_total", 3);
     }
     setUrl(url);
-
     navigate("/pdfview");
   };
   const url1 = "/Eloquent_JavaScript.pdf";
@@ -361,8 +337,11 @@ const ListPdf = ({ setUrl }) => {
 };
 
 export default function PdfPage() {
-  const [url, setUrl] = useState(localStorage.getItem("url"));
-  const [page, setPage] = useState(1);
+  var DEFAULT_URL = localStorage.getItem("url");
+  if (!DEFAULT_URL) {
+    DEFAULT_URL = "/Eloquent_JavaScript.pdf";
+  }
+  const [url, setUrl] = useState(DEFAULT_URL);
   return (
     <Routes>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
