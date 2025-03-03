@@ -153,6 +153,7 @@ const PDF = new PDF_JS_DIST();
 function PdfView({ url }) {
   let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 1;
   let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 3;
+
   //check step
   const [isPdfReady, setPdfReady] = useState(false);
   const [isCanvasReady, setCanvasReady] = useState(false);
@@ -163,7 +164,7 @@ function PdfView({ url }) {
   const [pageTotal, setPageTotal] = useState(DEFAULT_PAGE_TOTAL);
   const [pageScale, setPageScale] = useState(2);
   const [pageRotation, setPageRotation] = useState(0);
-
+  const [disableOBS, setDisAbleOBS] = useState(false);
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
   const S3_renderNextPage = async () => {
     const page = canvasStoreArrayRef.length;
@@ -189,7 +190,6 @@ function PdfView({ url }) {
     for (let i = 1; i <= canvasStoreArrayRef.length; i++) {
       await renderPage(canvasStoreArrayRef[i - 1], i, pageScale, pageRotation);
     }
-    setRenderReady(true);
   };
   const S2_createAllCanvas = () => {
     if (!isPdfReady) return;
@@ -245,9 +245,17 @@ function PdfView({ url }) {
       }, 50);
     }
   };
-  const lazyLoadPage = new IntersectionObserver(
+
+  const lazyLoadOpacityOBS = new IntersectionObserver(
     (entries) => {
-      info(entries[0]);
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          // localStorage.setItem("default_page_view", entry.target.dataset.index);
+          entry.target.style.opacity = 1;
+        } else {
+          entry.target.style.opacity = 0;
+        }
+      });
     },
     {
       root: document.getElementById("obs_root"),
@@ -255,12 +263,41 @@ function PdfView({ url }) {
       threshold: 0.2,
     },
   );
+  const lazyLoadOpacity = () => {
+    canvasStoreArrayRef.forEach((ref) => {
+      lazyLoadOpacityOBS.observe(ref.current);
+    });
+  };
+  const lazyLoadPageOBS = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          S2_createNextCanvas();
+          lazyLoadPageOBS.unobserve(entry.target);
+        }
+      });
+    },
+    {
+      root: document.getElementById("obs_root"),
+      rootMargin: "100px", // No margin around the root
+      threshold: 0.5,
+    },
+  );
+  const lazyLoadPage = () => {
+    if (canvasStoreArrayRef.length <= 0) return;
+    lazyLoadPageOBS.observe(
+      canvasStoreArrayRef[canvasStoreArrayRef.length - 1].current,
+    );
+    // canvasArray.forEach((element) => obs.observe(element?.current));
+  };
 
   useEffect(() => {
     S1_loadPdf(url);
   }, [url]);
 
   useEffect(() => {
+    setRenderReady(true);
+
     S2_createAllCanvas();
   }, [isPdfReady, pageTotal]);
 
@@ -271,6 +308,9 @@ function PdfView({ url }) {
 
   useEffect(() => {
     S3_renderNextPage();
+    lazyLoadPage();
+    lazyLoadOpacity();
+    localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
   }, [canvasStoreArrayRef]);
 
   useEffect(() => {
@@ -280,29 +320,28 @@ function PdfView({ url }) {
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
-        <div className="w-full h-[7%] shadow-md ">
+        <div className="w-full h-[7%] outline-1 shadow-md ">
+          <Dashboard isPageLoaded={isPdfReady} />
           <div className="flex justify-center items-center">
             <Button onClick={() => S2_createNextCanvas()}>add canvas 1</Button>
             <Button onClick={() => setPageTotal(10)}>render canvas</Button>
             <Button onClick={() => setPageRotation(90)}>rotation</Button>
             <Button onClick={() => setPageView(4)}>scroll</Button>
           </div>
-          <div>
-            <Dashboard isPageLoaded={isPdfReady} />
-          </div>
           <hr className="opacity-5" />
         </div>
         <div
           id="obs_root"
-          className=" gap-2  h-[93%] w-[100%] z-0 flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto "
+          className=" gap-2  h-[93%] w-[100%]  flex flex-col  no-scrollbar shadow-md items-center    scroll-smooth  overflow-auto "
         >
           {canvasStoreArrayRef?.map((ref, index) => (
             <canvas
+              data-index={index + 1}
               id={`canvas-${index + 1}`}
               key={index + 1}
               ref={ref}
               className={clsx(
-                " opacity-100 w-[99%] shadow-md transition-all  duration-70 ease-in",
+                " opacity-0 w-[99%] shadow-md transition-all  duration-70 ease-in",
               )}
             ></canvas>
           ))}
