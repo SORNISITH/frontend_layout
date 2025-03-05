@@ -221,14 +221,13 @@ function PdfView({ url }) {
   // localStorage.setItem("default_page_view", target);
   // setIndexBigger(() => !isIndexBigger);
 
-  const jumpToPage = (target, arrRef) => {
-    const _target = Number(target);
-    if (!arrRef) return info("@param 2 arrRef not defined");
+  const jumpToPage = (target) => {
+    const _target = Number(target) || 1;
     if (!_target) return info("@param 1 target not defined");
     if (pageTotalCount < pageIndex) {
       info("page view bigger");
     } else {
-      arrRef[_target]?.current?.scrollIntoView({
+      canvasStoreArrayRef[_target]?.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
@@ -303,12 +302,13 @@ function PdfView({ url }) {
   useEffect(() => {
     S3_renderNextPage(canvasStoreArrayRef);
   }, [triggerRerenderNextPage]);
+
   useEffect(() => {
-    jumpToPage(DEFAULT_PAGE_VIEW, canvasStoreArrayRef);
+    jumpToPage(DEFAULT_PAGE_VIEW);
   }, [triggerDefaultJumpPage]);
 
   useEffect(() => {
-    jumpToPage(pageIndex, canvasStoreArrayRef);
+    jumpToPage(pageIndex);
   }, [pageIndex]);
 
   useEffect(() => {
@@ -386,7 +386,7 @@ const BrowserList = ({ setUrl }) => {
   const navigate = useNavigate();
   const getPdf = (url) => {
     if (url !== localStorage.getItem("url")) {
-      localStorage.setItem("default_page_view", 0);
+      localStorage.setItem("default_page_view", 1);
       localStorage.setItem("default_page_total", 6);
     }
     setUrl(url);
