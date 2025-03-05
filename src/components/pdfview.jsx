@@ -141,7 +141,7 @@ class PDF_JS_DIST {
   }
 
   get totalPage() {
-    return this.pdf._pdfInfo.numPages;
+    return this.pdf?._pdfInfo?.numPages;
   }
 }
 
@@ -160,13 +160,15 @@ function PdfView({ url }) {
   const [isAllRenderReady, setAllRenderReady] = useState(false);
 
   // Page behav
+  const [pageIndex, setPageIndex] = useState(null);
   const [pageView, setPageView] = useState(DEFAULT_PAGE_VIEW);
   const [pageTotal, setPageTotal] = useState(DEFAULT_PAGE_TOTAL);
   const [pageScale, setPageScale] = useState(2);
   const [pageRotation, setPageRotation] = useState(0);
-  const [disableOberver, setDisableOberver] = useState(true);
+  const [disableObserver, setDisableObserver] = useState(true);
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-
+  const [maxPage, setMaxPage] = useState(null);
+  const [isIndexBigger, setIndexBigger] = useState(null);
   const S3_renderNextPage = async () => {
     const page = canvasStoreArrayRef.length;
     if (!isPdfReady) return;
@@ -179,27 +181,26 @@ function PdfView({ url }) {
     );
   };
 
-  const S3_renderAllPage = async () => {
+  const S3_renderAllPage = async (param_arrayRef) => {
     if (!isPdfReady) return;
     if (!isAllCanvasReady) return;
-    for (let i = 1; i <= canvasStoreArrayRef.length; i++) {
-      await renderPage(canvasStoreArrayRef[i - 1], i, pageScale, pageRotation);
+    for (let i = 1; i <= param_arrayRef.length; i++) {
+      await renderPage(param_arrayRef[i - 1], i, pageScale, pageRotation);
     }
-    setDisableOberver(() => true);
-
+    setDisableObserver(() => true);
     setAllRenderReady(() => true);
   };
-  const S2_createAllCanvas = () => {
+
+  const S2_createAllCanvas = async (param_totalPage) => {
     if (!isPdfReady) return;
+    setMaxPage(() => PDF?.totalPage);
     setCanvasStoreArrayRef(() => {
       const newArr = [];
-      for (let i = 1; i <= pageTotal; i++) {
+      for (let i = 1; i <= param_totalPage; i++) {
         newArr.push(createRef());
       }
-      return newArr;
     });
-    setDisableOberver(() => true);
-
+    setDisableObserver(() => true);
     setAllCanvasReady(() => true);
   };
 
@@ -222,19 +223,23 @@ function PdfView({ url }) {
   };
 
   const scrollToPage = (target) => {
-    info("scrollToPage : " + target);
-    canvasStoreArrayRef[target]?.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-    setDisableOberver(() => false);
+    if (pageTotal < pageIndex) {
+      const pindex = pageIndex + 2;
+      S2_createAllCanvas(pindex);
+    } else {
+      canvasStoreArrayRef[target]?.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      setDisableObserver(() => false);
+    }
   };
 
   const lazyLoadOpacityOBS = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          if (!disableOberver) {
+          if (!disableObserver) {
             localStorage.setItem(
               "default_page_view",
               entry.target.dataset.index,
@@ -242,7 +247,7 @@ function PdfView({ url }) {
           }
           entry.target.style.opacity = 1;
         } else {
-          entry.target.style.opacity = 0.5;
+          entry.target.style.opacity = 0;
         }
       });
     },
@@ -259,7 +264,7 @@ function PdfView({ url }) {
   };
   const lazyLoadPageOBS = new IntersectionObserver(
     (entries) => {
-      if (!disableOberver) {
+      if (!disableObserver) {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             S2_createNextCanvas();
@@ -275,8 +280,8 @@ function PdfView({ url }) {
     },
   );
   const lazyLoadPage = () => {
-    if (canvasStoreArrayRef.length <= 0) return;
-    lazyLoadPageOBS.observe(
+    if (canvasStoreArrayRef?.length <= 0) return;
+    lazyLoadPageOBS?.observe(
       canvasStoreArrayRef[canvasStoreArrayRef.length - 3].current,
     );
     // canvasArray.forEach((element) => obs.observe(element?.current));
@@ -287,11 +292,11 @@ function PdfView({ url }) {
   }, [url]);
 
   useEffect(() => {
-    S2_createAllCanvas();
+    S2_createAllCanvas(pageTotal);
   }, [isPdfReady, pageTotal]);
 
   useEffect(() => {
-    S3_renderAllPage();
+    S3_renderAllPage(canvasStoreArrayRef);
   }, [pageScale, pageRotation, isAllCanvasReady]);
 
   useEffect(() => {
@@ -299,12 +304,15 @@ function PdfView({ url }) {
     lazyLoadPage();
     lazyLoadOpacity();
     localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
-  }, [canvasStoreArrayRef, disableOberver]);
+  }, [canvasStoreArrayRef, disableObserver]);
 
   useEffect(() => {
     scrollToPage(pageView);
   }, [isAllRenderReady, pageView]);
 
+  useEffect(() => {
+    scrollToPage(pageIndex);
+  }, [pageIndex]);
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
@@ -312,9 +320,11 @@ function PdfView({ url }) {
           <Dashboard isPageLoaded={isPdfReady} />
           <div className="flex justify-center items-center">
             <Button onClick={() => S2_createNextCanvas()}>add canvas 1</Button>
-            <Button onClick={() => setPageTotal(10)}>render canvas</Button>
+            <Button onClick={() => setPageTotal(() => 100)}>
+              render canvas
+            </Button>
             <Button onClick={() => setPageRotation(90)}>rotation</Button>
-            <Button onClick={() => setPageView(0)}>scroll</Button>
+            <Button onClick={() => setPageIndex(() => 100)}>page index</Button>
           </div>
           <hr className="opacity-5" />
         </div>
@@ -329,7 +339,7 @@ function PdfView({ url }) {
               key={index + 1}
               ref={ref}
               className={clsx(
-                "opacity-50 w-[100%]  shadow-md transition-all  duration-70 ease-in",
+                "opacity-0 w-[100%]  shadow-md transition-all  duration-70 ease-in",
               )}
             ></canvas>
           ))}
@@ -368,7 +378,7 @@ const Dashboard = ({ isPageLoaded, setUrl }) => {
   );
 };
 
-const ListPdf = ({ setUrl }) => {
+const BrowserList = ({ setUrl }) => {
   const navigate = useNavigate();
   const getPdf = (url) => {
     if (url !== localStorage.getItem("url")) {
@@ -401,7 +411,7 @@ export default function PdfPage() {
   return (
     <Routes>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
-      <Route path="list" element={<ListPdf setUrl={setUrl} />}></Route>
+      <Route path="list" element={<BrowserList setUrl={setUrl} />}></Route>
       <Route index element={<PdfView url={url} />}></Route>
     </Routes>
   );
