@@ -182,9 +182,10 @@ function PdfView({ url }) {
   };
 
   const S3_renderAllPage = async (param_arrayRef) => {
+    if (!param_arrayRef) return;
     if (!isPdfReady) return;
     if (!isAllCanvasReady) return;
-    for (let i = 1; i <= param_arrayRef.length; i++) {
+    for (let i = 1; i <= param_arrayRef?.length; i++) {
       await renderPage(param_arrayRef[i - 1], i, pageScale, pageRotation);
     }
     setDisableObserver(() => true);
@@ -192,13 +193,16 @@ function PdfView({ url }) {
   };
 
   const S2_createAllCanvas = async (param_totalPage) => {
+    let _totalPage = Number(param_totalPage) == 0 ? 6 : param_totalPage;
     if (!isPdfReady) return;
+    if (!_totalPage) return;
     setMaxPage(() => PDF?.totalPage);
     setCanvasStoreArrayRef(() => {
       const newArr = [];
-      for (let i = 1; i <= param_totalPage; i++) {
+      for (let i = 1; i <= _totalPage; i++) {
         newArr.push(createRef());
       }
+      return newArr;
     });
     setDisableObserver(() => true);
     setAllCanvasReady(() => true);
@@ -279,6 +283,7 @@ function PdfView({ url }) {
       threshold: 0.5,
     },
   );
+
   const lazyLoadPage = () => {
     if (canvasStoreArrayRef?.length <= 0) return;
     lazyLoadPageOBS?.observe(
@@ -313,6 +318,7 @@ function PdfView({ url }) {
   useEffect(() => {
     scrollToPage(pageIndex);
   }, [pageIndex]);
+
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
