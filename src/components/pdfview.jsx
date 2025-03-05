@@ -153,50 +153,39 @@ const PDF = new PDF_JS_DIST();
 function PdfView({ url }) {
   let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 1;
   let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
-
-  //check step
+  //  trigger
   const [isPdfReady, setPdfReady] = useState(false);
-  const [isAllCanvasReady, setAllCanvasReady] = useState(false);
-  const [isAllRenderReady, setAllRenderReady] = useState(false);
-
+  const [triggerRerenderS2, setTriggerRerenderS2] = useState(false);
+  const [triggerRerenderS3, setTriggerRerenderS3] = useState(false);
+  const [triggerRerenderNextPage, setTriggerRerenderNextPage] = useState(false);
+  const [triggerDefaultJumpPage, setTriggerDefaultJumpPage] = useState(false);
   // Page behav
   const [pageIndex, setPageIndex] = useState(null);
-  const [pageView, setPageView] = useState(DEFAULT_PAGE_VIEW);
-  const [pageTotal, setPageTotal] = useState(DEFAULT_PAGE_TOTAL);
+  const [pageTotalCount, setPageTotalCount] = useState(DEFAULT_PAGE_TOTAL);
   const [pageScale, setPageScale] = useState(2);
   const [pageRotation, setPageRotation] = useState(0);
-  const [disableObserver, setDisableObserver] = useState(true);
+  const [disableObserver, setDisableObserver] = useState(false);
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-  const [maxPage, setMaxPage] = useState(null);
-  const [isIndexBigger, setIndexBigger] = useState(null);
-  const S3_renderNextPage = async () => {
-    const page = canvasStoreArrayRef.length;
-    if (!isPdfReady) return;
-    if (!isAllCanvasReady) return;
-    await renderPage(
-      canvasStoreArrayRef[page - 1],
-      page,
-      pageScale,
-      pageRotation,
-    );
+
+  const S3_renderNextPage = async (_arr) => {
+    if (!_arr) return info("function required array");
+    const page = _arr?.length;
+    await renderPage(_arr[page - 1], page, pageScale, pageRotation);
   };
 
-  const S3_renderAllPage = async (param_arrayRef) => {
-    if (!param_arrayRef) return;
-    if (!isPdfReady) return;
-    if (!isAllCanvasReady) return;
-    for (let i = 1; i <= param_arrayRef?.length; i++) {
-      await renderPage(param_arrayRef[i - 1], i, pageScale, pageRotation);
+  const S3_renderAllPage = async (_arrayRef) => {
+    if (!_arrayRef) return info("funtion required array ref createref()");
+    for (let i = 1; i <= _arrayRef?.length; i++) {
+      await renderPage(_arrayRef[i - 1], i, pageScale, pageRotation);
     }
     setDisableObserver(() => true);
-    setAllRenderReady(() => true);
+    setTriggerDefaultJumpPage(() => !triggerDefaultJumpPage);
   };
 
   const S2_createAllCanvas = async (param_totalPage) => {
+    if (!PDF?.pdf) return info("pdf is not yet loaded");
     let _totalPage = Number(param_totalPage) == 0 ? 6 : param_totalPage;
-    if (!isPdfReady) return;
     if (!_totalPage) return;
-    setMaxPage(() => PDF?.totalPage);
     setCanvasStoreArrayRef(() => {
       const newArr = [];
       for (let i = 1; i <= _totalPage; i++) {
@@ -204,38 +193,45 @@ function PdfView({ url }) {
       }
       return newArr;
     });
-    setDisableObserver(() => true);
-    setAllCanvasReady(() => true);
+    setTriggerRerenderS3(() => !triggerRerenderS3);
   };
 
   const S2_createNextCanvas = () => {
-    if (!isPdfReady) return;
     setCanvasStoreArrayRef((prev) => [...prev, createRef()]);
+    setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
   };
 
   const S1_loadPdf = async (_url) => {
     if (!_url) return;
+    setPdfReady(() => false);
     localStorage.setItem("url", _url);
     await PDF?.loadPdf(_url);
+    setTriggerRerenderS2(() => !triggerRerenderS2);
     setPdfReady(() => true);
   };
 
   const renderPage = async (canvas, pageNumber, scale, rotation) => {
-    if (!PDF.pdf) return;
-    await PDF.loadPage(pageNumber);
-    await PDF.renderPage(canvas, pageNumber, scale, rotation);
+    if (!PDF?.pdf) return;
+    await PDF?.loadPage(pageNumber);
+    await PDF?.renderPage(canvas, pageNumber, scale, rotation);
   };
 
-  const scrollToPage = (target) => {
-    if (pageTotal < pageIndex) {
-      const pindex = pageIndex + 2;
-      S2_createAllCanvas(pindex);
+  //   const pindex = pageIndex + 2;
+  // S2_createAllCanvas(pindex);
+  // localStorage.setItem("default_page_view", target);
+  // setIndexBigger(() => !isIndexBigger);
+
+  const jumpToPage = (target, arrRef) => {
+    const _target = Number(target);
+    if (!arrRef) return info("@param 2 arrRef not defined");
+    if (!_target) return info("@param 1 target not defined");
+    if (pageTotalCount < pageIndex) {
+      info("page view bigger");
     } else {
-      canvasStoreArrayRef[target]?.current?.scrollIntoView({
+      arrRef[_target]?.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
-      setDisableObserver(() => false);
     }
   };
 
@@ -266,13 +262,13 @@ function PdfView({ url }) {
       lazyLoadOpacityOBS.observe(ref.current);
     });
   };
-  const lazyLoadPageOBS = new IntersectionObserver(
+  const lazyLoadNextPageOBS = new IntersectionObserver(
     (entries) => {
       if (!disableObserver) {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             S2_createNextCanvas();
-            lazyLoadPageOBS.unobserve(entry.target);
+            lazyLoadOpacityOBS.unobserve(entry.target);
           }
         });
       }
@@ -284,9 +280,9 @@ function PdfView({ url }) {
     },
   );
 
-  const lazyLoadPage = () => {
+  const lazyLoadNextPage = () => {
     if (canvasStoreArrayRef?.length <= 0) return;
-    lazyLoadPageOBS?.observe(
+    lazyLoadNextPageOBS?.observe(
       canvasStoreArrayRef[canvasStoreArrayRef.length - 3].current,
     );
     // canvasArray.forEach((element) => obs.observe(element?.current));
@@ -297,27 +293,29 @@ function PdfView({ url }) {
   }, [url]);
 
   useEffect(() => {
-    S2_createAllCanvas(pageTotal);
-  }, [isPdfReady, pageTotal]);
+    S2_createAllCanvas(pageTotalCount);
+  }, [triggerRerenderS2, pageTotalCount]);
 
   useEffect(() => {
     S3_renderAllPage(canvasStoreArrayRef);
-  }, [pageScale, pageRotation, isAllCanvasReady]);
+  }, [triggerRerenderS3, pageScale, pageRotation]);
 
   useEffect(() => {
-    S3_renderNextPage();
-    lazyLoadPage();
+    S3_renderNextPage(canvasStoreArrayRef);
+  }, [triggerRerenderNextPage]);
+  useEffect(() => {
+    jumpToPage(DEFAULT_PAGE_VIEW, canvasStoreArrayRef);
+  }, [triggerDefaultJumpPage]);
+
+  useEffect(() => {
+    jumpToPage(pageIndex, canvasStoreArrayRef);
+  }, [pageIndex]);
+
+  useEffect(() => {
+    lazyLoadNextPage();
     lazyLoadOpacity();
     localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
-  }, [canvasStoreArrayRef, disableObserver]);
-
-  useEffect(() => {
-    scrollToPage(pageView);
-  }, [isAllRenderReady, pageView]);
-
-  useEffect(() => {
-    scrollToPage(pageIndex);
-  }, [pageIndex]);
+  }, [canvasStoreArrayRef]);
 
   return (
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
@@ -326,7 +324,7 @@ function PdfView({ url }) {
           <Dashboard isPageLoaded={isPdfReady} />
           <div className="flex justify-center items-center">
             <Button onClick={() => S2_createNextCanvas()}>add canvas 1</Button>
-            <Button onClick={() => setPageTotal(() => 100)}>
+            <Button onClick={() => setPageTotalCount(() => 100)}>
               render canvas
             </Button>
             <Button onClick={() => setPageRotation(90)}>rotation</Button>
