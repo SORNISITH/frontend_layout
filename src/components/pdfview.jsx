@@ -260,7 +260,7 @@ function PdfView({ url, changeUrl }) {
     {
       root: document.getElementById("obs_root"),
       rootMargin: "0px", // No margin around the root
-      threshold: 0.2,
+      threshold: 0.1,
     },
   );
   const lazyLoadOpacity = () => {
@@ -270,14 +270,12 @@ function PdfView({ url, changeUrl }) {
   };
   const lazyLoadNextPageOBS = new IntersectionObserver(
     (entries) => {
-      if (!disableObserver) {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            S2_createNextCanvas();
-            lazyLoadOpacityOBS.unobserve(entry.target);
-          }
-        });
-      }
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          S2_createNextCanvas();
+          lazyLoadOpacityOBS.unobserve(entry.target);
+        }
+      });
     },
     {
       root: document.getElementById("obs_root"),
@@ -289,7 +287,7 @@ function PdfView({ url, changeUrl }) {
   const lazyLoadNextPage = () => {
     if (canvasStoreArrayRef?.length <= 0) return;
     lazyLoadNextPageOBS?.observe(
-      canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current,
+      canvasStoreArrayRef[canvasStoreArrayRef.length - 3].current,
     );
     // canvasArray.forEach((element) => obs.observe(element?.current));
   };
@@ -300,7 +298,7 @@ function PdfView({ url, changeUrl }) {
 
   useEffect(() => {
     S2_createAllCanvas(pageTotalCount);
-  }, [triggerRerenderS2]);
+  }, [triggerRerenderS2, pageTotalCount]);
 
   useEffect(() => {
     S3_renderAllPage(canvasStoreArrayRef);
@@ -319,9 +317,9 @@ function PdfView({ url, changeUrl }) {
   }, [pageIndex]);
 
   useEffect(() => {
-    // lazyLoadNextPage();
-    lazyLoadOpacity();
     localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
+    lazyLoadNextPage();
+    lazyLoadOpacity();
   }, [canvasStoreArrayRef]);
 
   return (
@@ -336,6 +334,7 @@ function PdfView({ url, changeUrl }) {
             </Button>
             <Button onClick={() => setPageRotation(90)}>rotation</Button>
             <Button onClick={() => setPageIndex(() => 100)}>page index</Button>
+            <Button onClick={() => S2_createNextCanvas()}>next page</Button>
           </div>
           <hr className="opacity-5" />
         </div>
@@ -350,7 +349,7 @@ function PdfView({ url, changeUrl }) {
               key={index + 1}
               ref={ref}
               className={clsx(
-                "opacity-100 w-[100%]  shadow-md transition-all  duration-70 ease-in",
+                "opacity-0 w-[100%]  shadow-md transition-all  duration-70 ease-in",
               )}
             ></canvas>
           ))}
@@ -396,25 +395,26 @@ const BrowserList = ({ changeUrl }) => {
   };
   const url1 = "/Eloquent_JavaScript.pdf";
   const url2 = "/Learning the bash Shell, 3rd Edition (3).pdf";
-
+  const url3 = "https://mozilla.github.io/pdf.js/web/viewer.html";
   return (
     <div className="w-full h-full flex flex-col items-center">
       <div></div>
       <div className="flex justify-center">
         <Button onClick={() => _changeUrl(url1)}>jsvascript book</Button>
         <Button onClick={() => _changeUrl(url2)}>bash book</Button>
+        <Button onClick={() => _changeUrl(url3)}>test https</Button>
       </div>
     </div>
   );
 };
 
 export default function PdfPage() {
-  // var DEFAULT_URL = localStorage.getItem("url");
-  // if (!DEFAULT_URL) {
-  //   DEFAULT_URL = "/Eloquent_JavaScript.pdf";
-  // }'
-  // '
+  var DEFAULT_URL = localStorage.getItem("url");
+  if (!DEFAULT_URL) {
+    DEFAULT_URL = "/Eloquent_JavaScript.pdf";
+  }
   const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
+
   return (
     <Routes>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
