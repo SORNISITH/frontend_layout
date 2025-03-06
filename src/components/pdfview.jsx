@@ -282,7 +282,7 @@ function PdfView({ url }) {
   const lazyLoadNextPage = () => {
     if (canvasStoreArrayRef?.length <= 0) return;
     lazyLoadNextPageOBS?.observe(
-      canvasStoreArrayRef[canvasStoreArrayRef.length - 3].current,
+      canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current,
     );
     // canvasArray.forEach((element) => obs.observe(element?.current));
   };
