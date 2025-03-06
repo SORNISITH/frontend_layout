@@ -150,7 +150,7 @@ class PDF_JS_DIST {
 //-------------------------------------------------------------------------------
 const PDF = new PDF_JS_DIST();
 
-function PdfView({ url }) {
+function PdfView({ url, changeUrl }) {
   let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 1;
   let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
   //  trigger
@@ -168,13 +168,18 @@ function PdfView({ url }) {
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
 
   const S3_renderNextPage = async (_arr) => {
-    if (!_arr) return info("function required array");
+    if (!isPdfReady) return info("S3_renderNextPage Processing pdf");
+    if (!PDF?.pdf)
+      return info("S3_renderNextPage checking is pdf already loaded ?");
+    if (!_arr) return info("S3_renderNextgpage fn required array");
     const page = _arr?.length;
     await renderPage(_arr[page - 1], page, pageScale, pageRotation);
   };
 
   const S3_renderAllPage = async (_arrayRef) => {
-    if (!_arrayRef) return info("funtion required array ref createref()");
+    if (!isPdfReady) return info("S3_renderAllPage Processing pdf");
+    if (!PDF?.pdf)
+      return info("S3_renderAllPage checking is pdf already loaded ?");
     for (let i = 1; i <= _arrayRef?.length; i++) {
       await renderPage(_arrayRef[i - 1], i, pageScale, pageRotation);
     }
@@ -183,7 +188,8 @@ function PdfView({ url }) {
   };
 
   const S2_createAllCanvas = async (param_totalPage) => {
-    if (!PDF?.pdf) return info("pdf is not yet loaded");
+    if (!isPdfReady) return info("S2_createAllCanvas  processing pdf");
+    if (!PDF?.pdf) return info("S2_createAllCanvas pdf is not yet loaded");
     let _totalPage = Number(param_totalPage) == 0 ? 6 : param_totalPage;
     if (!_totalPage) return;
     setCanvasStoreArrayRef(() => {
@@ -193,6 +199,7 @@ function PdfView({ url }) {
       }
       return newArr;
     });
+    info("error here");
     setTriggerRerenderS3(() => !triggerRerenderS3);
   };
 
@@ -206,8 +213,8 @@ function PdfView({ url }) {
     setPdfReady(() => false);
     localStorage.setItem("url", _url);
     await PDF?.loadPdf(_url);
-    setTriggerRerenderS2(() => !triggerRerenderS2);
     setPdfReady(() => true);
+    setTriggerRerenderS2(() => !triggerRerenderS2);
   };
 
   const renderPage = async (canvas, pageNumber, scale, rotation) => {
@@ -293,7 +300,7 @@ function PdfView({ url }) {
 
   useEffect(() => {
     S2_createAllCanvas(pageTotalCount);
-  }, [triggerRerenderS2, pageTotalCount]);
+  }, [triggerRerenderS2]);
 
   useEffect(() => {
     S3_renderAllPage(canvasStoreArrayRef);
@@ -312,7 +319,7 @@ function PdfView({ url }) {
   }, [pageIndex]);
 
   useEffect(() => {
-    lazyLoadNextPage();
+    // lazyLoadNextPage();
     lazyLoadOpacity();
     localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
   }, [canvasStoreArrayRef]);
@@ -321,7 +328,7 @@ function PdfView({ url }) {
     <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
       <ResponsiveLayout>
         <div className="w-full h-[7%] outline-1 shadow-md ">
-          <Dashboard isPageLoaded={isPdfReady} />
+          <Dashboard isPageLoaded={isPdfReady} changeUrl={changeUrl} />
           <div className="flex justify-center items-center">
             <Button onClick={() => S2_createNextCanvas()}>add canvas 1</Button>
             <Button onClick={() => setPageTotalCount(() => 100)}>
@@ -343,7 +350,7 @@ function PdfView({ url }) {
               key={index + 1}
               ref={ref}
               className={clsx(
-                "opacity-0 w-[100%]  shadow-md transition-all  duration-70 ease-in",
+                "opacity-100 w-[100%]  shadow-md transition-all  duration-70 ease-in",
               )}
             ></canvas>
           ))}
@@ -353,21 +360,16 @@ function PdfView({ url }) {
   );
 }
 
-const Dashboard = ({ isPageLoaded, setUrl }) => {
+const Dashboard = ({ isPageLoaded, changeUrl }) => {
   const navigate = useNavigate();
   return (
     <div className="w-[100%]   bg-zinc-100 z-10  h-full  ">
       <div className="w-full h-full">
         <Button onClick={() => navigate("/")}>Back</Button>
-        <Button onClick={() => info(PDF.pdf)}>PDF info</Button>
-        <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
-        <Button
-          onClick={() =>
-            setUrl("/Learning the bash Shell, 3rd Edition (3).pdf")
-          }
-        >
-          Download
+        <Button onClick={() => changeUrl(() => "/Eloquent_JavaScript.pdf")}>
+          set url
         </Button>
+        <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
         <Button onClick={() => navigate("/pdfview/list")}>list page</Button>
       </div>
       <div className="w-full">
@@ -382,14 +384,14 @@ const Dashboard = ({ isPageLoaded, setUrl }) => {
   );
 };
 
-const BrowserList = ({ setUrl }) => {
+const BrowserList = ({ changeUrl }) => {
   const navigate = useNavigate();
-  const getPdf = (url) => {
+  const _changeUrl = (url) => {
     if (url !== localStorage.getItem("url")) {
       localStorage.setItem("default_page_view", 1);
       localStorage.setItem("default_page_total", 6);
     }
-    setUrl(url);
+    changeUrl(() => url);
     navigate("/pdfview");
   };
   const url1 = "/Eloquent_JavaScript.pdf";
@@ -399,24 +401,25 @@ const BrowserList = ({ setUrl }) => {
     <div className="w-full h-full flex flex-col items-center">
       <div></div>
       <div className="flex justify-center">
-        <Button onClick={() => getPdf(url1)}>jsvascript book</Button>
-        <Button onClick={() => getPdf(url2)}>bash book</Button>
+        <Button onClick={() => _changeUrl(url1)}>jsvascript book</Button>
+        <Button onClick={() => _changeUrl(url2)}>bash book</Button>
       </div>
     </div>
   );
 };
 
 export default function PdfPage() {
-  var DEFAULT_URL = localStorage.getItem("url");
-  if (!DEFAULT_URL) {
-    DEFAULT_URL = "/Eloquent_JavaScript.pdf";
-  }
-  const [url, setUrl] = useState(DEFAULT_URL);
+  // var DEFAULT_URL = localStorage.getItem("url");
+  // if (!DEFAULT_URL) {
+  //   DEFAULT_URL = "/Eloquent_JavaScript.pdf";
+  // }'
+  // '
+  const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
   return (
     <Routes>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
-      <Route path="list" element={<BrowserList setUrl={setUrl} />}></Route>
-      <Route index element={<PdfView url={url} />}></Route>
+      <Route path="list" element={<BrowserList changeUrl={setUrl} />}></Route>
+      <Route index element={<PdfView url={url} changeUrl={setUrl} />}></Route>
     </Routes>
   );
 }
