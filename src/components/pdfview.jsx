@@ -168,7 +168,7 @@ function PdfView({ url, changeUrl }) {
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
 
   const S3_renderNextPage = async (_arr) => {
-    if (!isPdfReady) return info("S3_renderNextPage Processing pdf");
+    if (!isPdfReady) return info("S3_renderNextPage pending Processing pdf");
     if (!PDF?.pdf)
       return info("S3_renderNextPage checking is pdf already loaded ?");
     if (!_arr) return info("S3_renderNextgpage fn required array");
@@ -177,7 +177,7 @@ function PdfView({ url, changeUrl }) {
   };
 
   const S3_renderAllPage = async (_arrayRef) => {
-    if (!isPdfReady) return info("S3_renderAllPage Processing pdf");
+    if (!isPdfReady) return info("S3_renderAllPage pending Processing pdf");
     if (!PDF?.pdf)
       return info("S3_renderAllPage checking is pdf already loaded ?");
     for (let i = 1; i <= _arrayRef?.length; i++) {
@@ -188,9 +188,9 @@ function PdfView({ url, changeUrl }) {
   };
 
   const S2_createAllCanvas = async (param_totalPage) => {
-    if (!isPdfReady) return info("S2_createAllCanvas  processing pdf");
+    if (!isPdfReady) return info("S2_createAllCanvas pending  processing pdf");
     if (!PDF?.pdf) return info("S2_createAllCanvas pdf is not yet loaded");
-    let _totalPage = Number(param_totalPage) == 0 ? 6 : param_totalPage;
+    let _totalPage = Number(param_totalPage) < 6 ? 6 : param_totalPage;
     if (!_totalPage) return;
     setCanvasStoreArrayRef(() => {
       const newArr = [];
@@ -274,21 +274,36 @@ function PdfView({ url, changeUrl }) {
         if (entry.isIntersecting) {
           S2_createNextCanvas();
           lazyLoadOpacityOBS.unobserve(entry.target);
+          // Observe the next page (e.g., page 9 after page 8)
+          const nextPageIndex = canvasStoreArrayRef.length - 1;
+          if (
+            canvasStoreArrayRef[nextPageIndex] &&
+            canvasStoreArrayRef[nextPageIndex + 1]
+          ) {
+            lazyLoadNextPageOBS.observe(
+              canvasStoreArrayRef[nextPageIndex + 1].current,
+            );
+          }
         }
       });
     },
     {
       root: document.getElementById("obs_root"),
       rootMargin: "100px", // No margin around the root
-      threshold: 0.5,
+      threshold: 0.3,
     },
   );
 
   const lazyLoadNextPage = () => {
-    if (canvasStoreArrayRef?.length <= 0) return;
-    lazyLoadNextPageOBS?.observe(
-      canvasStoreArrayRef[canvasStoreArrayRef.length - 3].current,
-    );
+    if (!canvasStoreArrayRef) return;
+    if (canvasStoreArrayRef?.length <= 5) return;
+    const watchPage =
+      canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current;
+    const unWatchPage =
+      canvasStoreArrayRef[canvasStoreArrayRef.length - 3].current;
+
+    lazyLoadNextPageOBS?.observe(watchPage);
+    lazyLoadNextPageOBS?.unobserve(unWatchPage); //unwatch full load
     // canvasArray.forEach((element) => obs.observe(element?.current));
   };
 
@@ -297,7 +312,7 @@ function PdfView({ url, changeUrl }) {
   }, [url]);
 
   useEffect(() => {
-    S2_createAllCanvas(pageTotalCount);
+    S2_createAllCanvas(5);
   }, [triggerRerenderS2, pageTotalCount]);
 
   useEffect(() => {
