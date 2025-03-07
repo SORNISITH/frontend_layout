@@ -19,7 +19,7 @@ const ResponsiveLayout = ({ children }) => {
 };
 
 // npm install pdfjs-dist --save-dev
-//@mui   clsx  react react-router
+//@mui   clsx  react react-router  motion
 import { Button, LinearProgress } from "@mui/material";
 import { v4 as uuidv4 } from "uuid";
 //---------------------------------------------------------------------
@@ -58,7 +58,7 @@ class PDF_JS_DIST {
   async loadPage(number) {
     const page = number || 1;
     try {
-      info("Loading page ...");
+      info("Loading page ... : ", page);
       const resultLoadPage = await this.pdf.getPage(page);
       this.page.set(page, resultLoadPage);
     } catch (error) {
@@ -173,6 +173,7 @@ function PdfView({ url, changeUrl }) {
       return info("S3_renderNextPage checking is pdf already loaded ?");
     if (!_arr) return info("S3_renderNextgpage fn required array");
     const page = _arr?.length;
+    info("S3_renderNextPage : ", page);
     await renderPage(_arr[page - 1], page, pageScale, pageRotation);
   };
 
@@ -180,6 +181,8 @@ function PdfView({ url, changeUrl }) {
     if (!isPdfReady) return info("S3_renderAllPage pending Processing pdf");
     if (!PDF?.pdf)
       return info("S3_renderAllPage checking is pdf already loaded ?");
+    info("S3_renderAllCanvas : ", _arrayRef);
+
     for (let i = 1; i <= _arrayRef?.length; i++) {
       await renderPage(_arrayRef[i - 1], i, pageScale, pageRotation);
     }
@@ -191,6 +194,7 @@ function PdfView({ url, changeUrl }) {
     if (!isPdfReady) return info("S2_createAllCanvas pending  processing pdf");
     if (!PDF?.pdf) return info("S2_createAllCanvas pdf is not yet loaded");
     let _totalPage = Number(param_totalPage) < 6 ? 6 : param_totalPage;
+    info("S2_createAllCanvas : " + _totalPage);
     if (!_totalPage) return;
     setCanvasStoreArrayRef(() => {
       const newArr = [];
@@ -199,13 +203,13 @@ function PdfView({ url, changeUrl }) {
       }
       return newArr;
     });
-    info("error here");
     setTriggerRerenderS3(() => !triggerRerenderS3);
   };
 
   const S2_createNextCanvas = () => {
     setCanvasStoreArrayRef((prev) => [...prev, createRef()]);
     setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
+    info("S2_createNextanvas created 1x ");
   };
 
   const S1_loadPdf = async (_url) => {
@@ -299,11 +303,8 @@ function PdfView({ url, changeUrl }) {
     if (canvasStoreArrayRef?.length <= 5) return;
     const watchPage =
       canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current;
-    const unWatchPage =
-      canvasStoreArrayRef[canvasStoreArrayRef.length - 3].current;
 
     lazyLoadNextPageOBS?.observe(watchPage);
-    lazyLoadNextPageOBS?.unobserve(unWatchPage); //unwatch full load
     // canvasArray.forEach((element) => obs.observe(element?.current));
   };
 
