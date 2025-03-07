@@ -260,7 +260,7 @@ function PdfView({ url, changeUrl }) {
     {
       root: document.getElementById("obs_root"),
       rootMargin: "0px", // No margin around the root
-      threshold: 0.1,
+      threshold: 0.01,
     },
   );
   const lazyLoadOpacity = () => {
