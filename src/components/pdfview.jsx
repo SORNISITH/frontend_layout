@@ -38,9 +38,14 @@ import * as pdfjsLib from "pdfjs-dist";
 import { useEffect, useState, useRef, createRef, useCallback } from "react";
 import clsx from "clsx";
 ///cdn worker
+//
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
-
+class paramFactory {
+  constructor() {
+    this.url = url;
+  }
+}
 class PDF_JS_DIST {
   constructor() {
     this.lip = pdfjsLib;
@@ -209,58 +214,48 @@ class PDF_JS_DIST {
 //-------------------------------------------------------------------------------
 const PDF = new PDF_JS_DIST();
 
-function PdfView({ url, changeUrl }) {
-  let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 1;
-  let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
-  //  trigger
-  const [isPdfReady, setPdfReady] = useState(false);
-  const [triggerRerenderS2, setTriggerRerenderS2] = useState(false);
-  const [triggerRerenderS3, setTriggerRerenderS3] = useState(false);
-  const [triggerRerenderNextPage, setTriggerRerenderNextPage] = useState(false);
-  const [triggerDefaultJumpPage, setTriggerDefaultJumpPage] = useState(false);
-  // Page behav
-
-  const [getPdfSize, setPdfSize] = useState(null);
-  const [pageIndex, setPageIndex] = useState(null);
-  const [pageTotalCount, setPageTotalCount] = useState(DEFAULT_PAGE_TOTAL);
-  const [pageScale, setPageScale] = useState(2);
-  const [pageRotation, setPageRotation] = useState(0);
-  const [disableObserver, setDisableObserver] = useState(false);
-  const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-  const scrollRef = useRef(null);
-  const S3_renderNextPage = async (_arr) => {
-    if (!isPdfReady) return info("S3_renderNextPage pending Processing pdf");
-    if (!PDF?.pdf)
-      return info("S3_renderNextPage checking is pdf already loaded ?");
-    if (!_arr) return info("S3_renderNextgpage fn required array");
-    const page = _arr?.length;
-    info("S3_renderNextPage : ", page);
-    await PDF.load_render_canvas(_arr[page - 1], page, pageScale, pageRotation);
+function pdfViewCallViewPdf(stateObj) {
+  const {
+    canvasStoreRef,
+    url,
+    pageIndex,
+    pageScale,
+    pageRotation,
+    pageTotalCount,
+    isPdfReady,
+    triggerRerenderS2,
+    triggerRerenderS3,
+    triggerRerenderNextPage,
+    triggerDefaultJumpPage,
+    setPdfReady,
+    setCanvasStoreArrayRef,
+    setTriggerRerenderS2,
+    setTriggerRerenderS3,
+    setTriggerRerenderNextPage,
+    setDisableObserver,
+    setTriggerDefaultJumpPage,
+  } = stateObj;
+  const S1_GETPDF = async () => {
+    if (!url) return;
+    setPdfReady(() => false);
+    localStorage.setItem("url", url);
+    // async function converToBlob() {
+    //   const ADDRESS = "http://localhost:5173/";
+    //   const getResponse = await fetch(`${ADDRESS}${_url}`);
+    //   const blob = await getResponse.blob();
+    //   const pdfUrl = URL.createObjectURL(blob);
+    //   await PDF?.loadPdf(pdfUrl);
+    //   // setPdfSize(() => blob.size);
+    // }
+    await PDF?.loadPdf(url);
+    setPdfReady(() => true);
+    setTriggerRerenderS2(() => !triggerRerenderS2);
   };
-
-  const S3_renderAllPage = async (_arrayRef) => {
-    if (!isPdfReady) return info("S3_renderAllPage pending Processing pdf");
-    if (!PDF?.pdf)
-      return info("S3_renderAllPage checking is pdf already loaded ?");
-    info("S3_renderAllCanvas : ", _arrayRef);
-
-    for (let i = 1; i <= _arrayRef?.length; i++) {
-      await PDF.load_render_canvas(
-        _arrayRef[i - 1],
-        i,
-        pageScale,
-        pageRotation,
-      );
-    }
-    setDisableObserver(() => true);
-    setTriggerDefaultJumpPage(() => !triggerDefaultJumpPage);
-  };
-
-  const S2_createAllCanvas = async (param_totalPage) => {
-    if (!isPdfReady) return info("S2_createAllCanvas pending  processing pdf");
-    if (!PDF?.pdf) return info("S2_createAllCanvas pdf is not yet loaded");
-    let _totalPage = Number(param_totalPage) < 6 ? 6 : param_totalPage;
-    info("S2_createAllCanvas : " + _totalPage);
+  const S2_loadCanvas = async () => {
+    if (!isPdfReady) return info("S2_loadCanvas pending  processing pdf");
+    if (!PDF?.pdf) return info("S2_loadCanvas pdf is not yet loaded");
+    let _totalPage = Number() < 6 ? 6 : pageTotalCount;
+    info("S2_loadCanvas : " + _totalPage);
     if (!_totalPage) return;
     setCanvasStoreArrayRef(() => {
       const newArr = [];
@@ -271,55 +266,53 @@ function PdfView({ url, changeUrl }) {
     });
     setTriggerRerenderS3(() => !triggerRerenderS3);
   };
-
   const S2_createNextCanvas = () => {
     setCanvasStoreArrayRef((prev) => [...prev, createRef()]);
     setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
     info("S2_createNextanvas created 1 canvas ");
   };
-  const S1_loadPdf = async (_url, type) => {
-    if (!_url) return;
-    setPdfReady(() => false);
-    localStorage.setItem("url", _url);
-
-    async function converToBlob() {
-      const ADDRESS = "http://localhost:5173/";
-      const getResponse = await fetch(`${ADDRESS}${_url}`);
-      const blob = await getResponse.blob();
-      const pdfUrl = URL.createObjectURL(blob);
-      await PDF?.loadPdf(pdfUrl);
-      setPdfSize(() => blob.size);
+  const S3_renderAllPage = async () => {
+    if (!isPdfReady) return info("S3_renderAllPage pending Processing pdf");
+    if (!PDF?.pdf)
+      return info("S3_renderAllPage checking is pdf already loaded ?");
+    info("S3_renderAllCanvas : ", canvasStoreRef);
+    for (let i = 1; i <= canvasStoreRef?.length; i++) {
+      await PDF.load_render_canvas(
+        canvasStoreRef[i - 1],
+        i,
+        pageScale,
+        pageRotation,
+      );
     }
-    async function directGetUrl() {
-      await PDF?.loadPdf(_url);
-    }
-    if (type == "direct") {
-      await directGetUrl();
-    } else if (type == "auth") {
-      await converToBlob();
-    }
-    setPdfReady(() => true);
-    setTriggerRerenderS2(() => !triggerRerenderS2);
+    setDisableObserver(() => true);
+    setTriggerDefaultJumpPage(() => !triggerDefaultJumpPage);
   };
-
-  //   const pindex = pageIndex + 2;
-  // S2_createAllCanvas(pindex);
-  // localStorage.setItem("default_page_view", target);
-  // setIndexBigger(() => !isIndexBigger);
-
+  const S3_renderNextPage = async () => {
+    if (!isPdfReady) return info("S3_renderNextPage pending Processing pdf");
+    if (!PDF?.pdf)
+      return info("S3_renderNextPage checking is pdf already loaded ?");
+    if (!canvasStoreRef) return info("S3_renderNextgpage fn required array");
+    const page = canvasStoreRef?.length;
+    info("S3_renderNextPage : ", page);
+    await PDF.load_render_canvas(
+      canvasStoreRef[page - 1],
+      page,
+      pageScale,
+      pageRotation,
+    );
+  };
   const jumpToPage = (target) => {
     const _target = Number(target) || 1;
     if (!_target) return info("@param 1 target not defined");
     if (pageTotalCount < pageIndex) {
       info("page view bigger");
     } else {
-      canvasStoreArrayRef[_target]?.current?.scrollIntoView({
+      canvasStoreRef[_target]?.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
     }
   };
-
   const lazyLoadNextPageOBS = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -335,45 +328,79 @@ function PdfView({ url, changeUrl }) {
       threshold: 0.3,
     },
   );
+  const setDefaultPage = () => {
+    localStorage.setItem("default_page_total", canvasStoreRef.length);
+  };
 
   const lazyLoadNextPage = () => {
-    if (!canvasStoreArrayRef) return;
-    if (canvasStoreArrayRef?.length <= 5) return;
-    const watchPage =
-      canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current;
+    if (!canvasStoreRef) return;
+    if (canvasStoreRef?.length <= 5) return;
+    const watchPage = canvasStoreRef[canvasStoreRef.length - 2].current;
     lazyLoadNextPageOBS?.observe(watchPage);
     // canvasArray.forEach((element) => obs.observe(element?.current));
   };
 
-  useEffect(() => {
-    S1_loadPdf(url, "direct"); // for dev
-    // S1_loadPdf(url, "auth"); // for production
-  }, [url]);
+  return {
+    S1_GETPDF,
+    S2_loadCanvas,
+    S2_createNextCanvas,
+    S3_renderAllPage,
+    S3_renderNextPage,
+    jumpToPage,
+    lazyLoadNextPage,
+    setDefaultPage,
+  };
+}
+
+function PdfView({ stateObj }) {
+  let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 1;
+  let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
+  //  trigger
+  // const [isPdfReady, setPdfReady] = useState(false);
+  // const [triggerRerenderS2, setTriggerRerenderS2] = useState(false);
+  // const [triggerRerenderS3, setTriggerRerenderS3] = useState(false);
+  // const [triggerRerenderNextPage, setTriggerRerenderNextPage] = useState(false);
+  // const [triggerDefaultJumpPage, setTriggerDefaultJumpPage] = useState(false);
+  // // Page behav
+  //
+  // const [getPdfSize, setPdfSize] = useState(null);
+  // const [pageIndex, setPageIndex] = useState(null);
+  // const [pageTotalCount, setPageTotalCount] = useState(DEFAULT_PAGE_TOTAL);
+  // const [pageScale, setPageScale] = useState(2);
+  // const [pageRotation, setPageRotation] = useState(0);
+  // const [disableObserver, setDisableObserver] = useState(false);
+  // const [canvasStoreRef, setCanvasStoreArrayRef] = useState([]);
+  const scrollRef = useRef(null);
+  const pdfViewCall = pdfViewCallViewPdf(stateObj);
 
   useEffect(() => {
-    S2_createAllCanvas(5);
-  }, [triggerRerenderS2, pageTotalCount]);
+    pdfViewCall.S1_GETPDF(); //
+  }, [stateObj.url]);
 
   useEffect(() => {
-    S3_renderAllPage(canvasStoreArrayRef);
-  }, [triggerRerenderS3, pageScale, pageRotation]);
+    pdfViewCall.S2_loadCanvas();
+  }, [stateObj.triggerRerenderS2, stateObj.pageTotalCount]);
 
   useEffect(() => {
-    S3_renderNextPage(canvasStoreArrayRef);
-  }, [triggerRerenderNextPage]);
+    pdfViewCall.S3_renderAllPage();
+  }, [stateObj.triggerRerenderS3, stateObj.pageScale, stateObj.pageRotation]);
 
   useEffect(() => {
-    jumpToPage(DEFAULT_PAGE_VIEW);
-  }, [triggerDefaultJumpPage]);
+    pdfViewCall.S3_renderNextPage();
+  }, [stateObj.triggerRerenderNextPage]);
 
   useEffect(() => {
-    jumpToPage(pageIndex);
-  }, [pageIndex]);
+    pdfViewCall.jumpToPage(DEFAULT_PAGE_VIEW);
+  }, [stateObj.triggerDefaultJumpPage]);
 
   useEffect(() => {
-    localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
-    lazyLoadNextPage();
-  }, [canvasStoreArrayRef]);
+    pdfViewCall.jumpToPage(stateObj.pageIndex);
+  }, [stateObj.pageIndex]);
+
+  useEffect(() => {
+    pdfViewCall.setDefaultPage();
+    pdfViewCall.lazyLoadNextPage();
+  }, [stateObj.canvasStoreRef]);
 
   return (
     <motion.div
@@ -386,7 +413,10 @@ function PdfView({ url, changeUrl }) {
     >
       <ResponsiveLayout>
         <div className="w-full h-[7%]  shadow-md ">
-          <Dashboard isPageLoaded={isPdfReady} changeUrl={changeUrl} />
+          <Dashboard
+            isPageLoaded={stateObj.isPdfReady}
+            changeUrl={stateObj.changeUrl}
+          />
         </div>
         <hr className="opacity-5 mt-0.5" />
 
@@ -395,7 +425,7 @@ function PdfView({ url, changeUrl }) {
           id="obs_root"
           className=" gap-1   h-[93%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
         >
-          {canvasStoreArrayRef?.map((ref, index) => (
+          {stateObj.canvasStoreRef?.map((ref, index) => (
             <motion.canvas
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -476,16 +506,55 @@ const BrowserList = ({ changeUrl }) => {
 
 export default function PdfPage() {
   var DEFAULT_URL = localStorage.getItem("url");
+  let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") || 1;
+  let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
+
   if (!DEFAULT_URL) {
     DEFAULT_URL = "/Eloquent_JavaScript.pdf";
   }
   const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
+  const [isPdfReady, setPdfReady] = useState(false);
+  const [triggerRerenderS2, setTriggerRerenderS2] = useState(false);
+  const [triggerRerenderS3, setTriggerRerenderS3] = useState(false);
+  const [triggerRerenderNextPage, setTriggerRerenderNextPage] = useState(false);
+  const [triggerDefaultJumpPage, setTriggerDefaultJumpPage] = useState(false);
+  // Page behav
+
+  const [getPdfSize, setPdfSize] = useState(null);
+  const [pageIndex, setPageIndex] = useState(null);
+  const [pageTotalCount, setPageTotalCount] = useState(DEFAULT_PAGE_TOTAL);
+  const [pageScale, setPageScale] = useState(2);
+  const [pageRotation, setPageRotation] = useState(0);
+  const [disableObserver, setDisableObserver] = useState(false);
+  const [canvasStoreRef, setCanvasStoreArrayRef] = useState([]);
+  const scrollRef = useRef(null);
+
+  const stateObj = {
+    canvasStoreRef,
+    url,
+    pageIndex,
+    pageScale,
+    pageRotation,
+    pageTotalCount,
+    isPdfReady,
+    triggerRerenderS2,
+    triggerRerenderS3,
+    triggerRerenderNextPage,
+    triggerDefaultJumpPage,
+    setPdfReady,
+    setCanvasStoreArrayRef,
+    setTriggerRerenderS2,
+    setTriggerRerenderS3,
+    setTriggerRerenderNextPage,
+    setDisableObserver,
+    setTriggerDefaultJumpPage,
+  };
 
   return (
     <Routes>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
       <Route path="list" element={<BrowserList changeUrl={setUrl} />}></Route>
-      <Route index element={<PdfView url={url} changeUrl={setUrl} />}></Route>
+      <Route index element={<PdfView stateObj={stateObj} />}></Route>
     </Routes>
   );
 }
