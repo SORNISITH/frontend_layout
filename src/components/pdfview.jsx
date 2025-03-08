@@ -223,7 +223,7 @@ function pdfViewCallViewPdf(mState) {
     setPdfReady(() => false);
     localStorage.setItem("url", url);
     const ADDRESS = "http://localhost:5173/";
-    const getResponse = await fetch(`${ADDRESS}${_url}`);
+    const getResponse = await fetch(`${ADDRESS}${url}`);
     const blob = await getResponse.blob();
     const pdfUrl = URL.createObjectURL(blob);
     await PDF?.loadPdf(pdfUrl);
@@ -236,14 +236,6 @@ function pdfViewCallViewPdf(mState) {
     if (!url) return;
     setPdfReady(() => false);
     localStorage.setItem("url", url);
-    // async function converToBlob() {
-    //   const ADDRESS = "http://localhost:5173/";
-    //   const getResponse = await fetch(`${ADDRESS}${_url}`);
-    //   const blob = await getResponse.blob();
-    //   const pdfUrl = URL.createObjectURL(blob);
-    //   await PDF?.loadPdf(pdfUrl);
-    //   // setPdfSize(() => blob.size);
-    // }
     await PDF?.loadPdf(url);
     setPdfReady(() => true);
     setTriggerRerenderS2(() => !triggerRerenderS2);
@@ -349,9 +341,9 @@ function pdfViewCallViewPdf(mState) {
     setDefaultPage,
   };
 }
-function PdfStartEngine({ mState }) {
+function PdfViewEngine({ mState }) {
+  const scrollRef = useRef(null);
   const pdfViewCall = pdfViewCallViewPdf(mState);
-
   useEffect(() => {
     pdfViewCall.S1_GETPDF(); //
   }, [mState.url]);
@@ -374,9 +366,6 @@ function PdfStartEngine({ mState }) {
     pdfViewCall.setDefaultPage();
     pdfViewCall.lazyLoadNextPage();
   }, [mState.canvasStoreRef]);
-}
-function PdfViewEngine({ mState }) {
-  const scrollRef = useRef(null);
 
   return (
     <motion.div
@@ -389,7 +378,7 @@ function PdfViewEngine({ mState }) {
     >
       <ResponsiveLayout>
         <div className="w-full h-[7%]  shadow-md ">
-          <Dashboard isPageLoaded={mState.isPdfReady} />
+          <Dashboard mState={mState} />
         </div>
         <div
           ref={scrollRef}
@@ -420,23 +409,22 @@ function PdfViewEngine({ mState }) {
   );
 }
 
-const Dashboard = ({ isPageLoaded, changeUrl }) => {
+const Dashboard = ({ mState }) => {
   const navigate = useNavigate();
   return (
     <div className="w-[100%]   bg-zinc-100 z-10  h-full  ">
       <div className="w-full h-full">
         <Button onClick={() => navigate("/")}>Back</Button>
-        <Button onClick={() => changeUrl(() => "/Eloquent_JavaScript.pdf")}>
+        <Button onClick={() => mState.setUrl(() => "/Eloquent_JavaScript.pdf")}>
           set url
         </Button>
-        <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
         <Button onClick={() => navigate("/pdfview/list")}>list page</Button>
       </div>
       <div className="w-full">
         <LinearProgress
           variant="indeterminate"
           sx={{
-            display: isPageLoaded ? "none" : "block",
+            display: mState.isPageLoaded ? "none" : "block",
           }}
         />
       </div>
@@ -444,14 +432,14 @@ const Dashboard = ({ isPageLoaded, changeUrl }) => {
   );
 };
 
-const BrowserList = ({ changeUrl }) => {
+const BrowserList = ({ mState }) => {
   const navigate = useNavigate();
   const _changeUrl = (url) => {
     if (url !== localStorage.getItem("url")) {
-      localStorage.setItem("default_page_view", 1);
       localStorage.setItem("default_page_total", 6);
+      localStorage.setItem("default_page_view", 1);
     }
-    changeUrl(() => url);
+    mState.setUrl(() => url);
     navigate("/pdfview");
   };
   const url1 = "/Eloquent_JavaScript.pdf";
@@ -526,9 +514,8 @@ export default function PdfPage() {
 
   return (
     <>
-      <PdfStartEngine mState={mState} />
       <Routes>
-        <Route path="list" element={<BrowserList />}></Route>
+        <Route path="list" element={<BrowserList mState={mState} />}></Route>
         <Route index element={<PdfViewEngine mState={mState} />}></Route>
         <Route
           path="*"
