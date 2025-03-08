@@ -22,7 +22,6 @@ const ResponsiveLayout = ({ children }) => {
 //@mui   clsx  react react-router  motion
 import { Button, LinearProgress } from "@mui/material";
 import { AnimatePresence, motion } from "motion/react";
-import { v4 as uuidv4 } from "uuid";
 //---------------------------------------------------------------------
 import { Routes, Route, useNavigate } from "react-router";
 import NoteFound from "@/pages/404";
@@ -32,6 +31,7 @@ import clsx from "clsx";
 ///cdn worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+
 class PDF_JS_DIST {
   constructor() {
     this.lip = pdfjsLib;
@@ -66,6 +66,56 @@ class PDF_JS_DIST {
       err("=> error obj load page : " + error);
     }
   }
+  //TODO :Error
+  async renderPageSvg(canvasRef, pageNumber, scale, rotation) {
+    try {
+      if (this.pageRendering) {
+        warn("render engine task pending page: " + pageNumber);
+        return;
+      } else {
+        info("start rendering page : " + pageNumber);
+        this.pageRendering = true;
+        const _svgElement = canvasRef.current;
+        const _page = pageNumber || 1;
+        const _scale = scale || 1;
+        const _rotation = rotation || 0;
+        const viewport = await this.page
+          ?.get(_page)
+          ?.getViewport({ scale: _scale, rotation: _rotation });
+
+        // if (!(_svgElement instanceof HTMLCanvasElement)) {
+        //   err("Stored object is NOT a valid <canvas> element!", _svgElement);
+        // }
+        const svg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg",
+        );
+        svg.setAttibute("width", viewport.height || 1);
+        svg.setAttibute("height", viewport.width || 1);
+        const PAGEOBJ = this.page.get(_page);
+        const renderTask = PAGEOBJ.getOperatorList().then(async (ops) => {
+          const svgGfx = new pdfjsLib.SVGGraphics(
+            PAGEOBJ.commonObjs,
+            PAGEOBJ.objs,
+          );
+          const svgOps = await svgGfx.getSVG(ops, viewport);
+          svg.appendChild(svgOps);
+          _svgElement.innerHtml = "";
+          _svgElement.appendChild(svg);
+        });
+        await renderTask.promise;
+        info("finish render page : " + _page);
+        this.pageRendering = false;
+      }
+    } catch (error) {
+      err(error);
+    }
+  }
+  async load_render_canvas(canvas, pageNumber, scale, rotation) {
+    if (!this?.pdf) return;
+    await this?.loadPage(pageNumber);
+    await this?.renderPage(canvas, pageNumber, scale, rotation);
+  }
 
   async renderPage(canvasRef, pageNumber, scale, rotation) {
     try {
@@ -98,42 +148,7 @@ class PDF_JS_DIST {
         const renderTask = this.page.get(_page).render(renderContext);
         await renderTask.promise;
         info("finish render page : " + _page);
-
-        // Draw the page number at the bottom-center
-        const text = `Page : ${_page}`;
-        const textWidth = context.measureText(text).width;
-        const textHeight = 16; // Font size
-        const centerX = _canvas.width / 2;
-        const bottomY = _canvas.height - 30; // 20px from the bottom
-
-        // Draw the background (rounded white square)
-        const padding = 15;
-        context.fillStyle = "white";
-        context.beginPath();
-        context.moveTo(
-          centerX - textWidth / 2 - padding,
-          bottomY - textHeight / 2 - padding,
-        );
-        context.lineTo(
-          centerX + textWidth / 2 + padding,
-          bottomY - textHeight / 2 - padding,
-        );
-        context.lineTo(
-          centerX + textWidth / 2 + padding,
-          bottomY + textHeight / 2 + padding,
-        );
-        context.lineTo(
-          centerX - textWidth / 2 - padding,
-          bottomY + textHeight / 2 + padding,
-        );
-        context.closePath();
-        context.fill();
-
-        // Draw the text (black color)
-        context.fillStyle = "black";
-        context.font = "16px Arial"; // Font size
-        context.textAlign = "center";
-        context.fillText(text, centerX, bottomY + 10);
+        this.drawPage(context, _canvas, _page);
         this.pageRendering = false;
       }
     } catch (error) {
@@ -141,6 +156,43 @@ class PDF_JS_DIST {
     }
   }
 
+  drawPage(context, _canvas, _page) {
+    // Draw the page number at the bottom-center
+    const text = `Page : ${_page}`;
+    const textWidth = context.measureText(text).width;
+    const textHeight = 16; // Font size
+    const centerX = _canvas.width / 2;
+    const bottomY = _canvas.height - 30; // 20px from the bottom
+
+    // Draw the background (rounded white square)
+    const padding = 15;
+    context.fillStyle = "white";
+    context.beginPath();
+    context.moveTo(
+      centerX - textWidth / 2 - padding,
+      bottomY - textHeight / 2 - padding,
+    );
+    context.lineTo(
+      centerX + textWidth / 2 + padding,
+      bottomY - textHeight / 2 - padding,
+    );
+    context.lineTo(
+      centerX + textWidth / 2 + padding,
+      bottomY + textHeight / 2 + padding,
+    );
+    context.lineTo(
+      centerX - textWidth / 2 - padding,
+      bottomY + textHeight / 2 + padding,
+    );
+    context.closePath();
+    context.fill();
+
+    // Draw the text (black color)
+    context.fillStyle = "black";
+    context.font = "16px Arial"; // Font size
+    context.textAlign = "center";
+    context.fillText(text, centerX, bottomY + 10);
+  }
   get totalPage() {
     return this.pdf?._pdfInfo?.numPages;
   }
@@ -161,6 +213,8 @@ function PdfView({ url, changeUrl }) {
   const [triggerRerenderNextPage, setTriggerRerenderNextPage] = useState(false);
   const [triggerDefaultJumpPage, setTriggerDefaultJumpPage] = useState(false);
   // Page behav
+
+  const [getPdfSize, setPdfSize] = useState(null);
   const [pageIndex, setPageIndex] = useState(null);
   const [pageTotalCount, setPageTotalCount] = useState(DEFAULT_PAGE_TOTAL);
   const [pageScale, setPageScale] = useState(2);
@@ -175,7 +229,7 @@ function PdfView({ url, changeUrl }) {
     if (!_arr) return info("S3_renderNextgpage fn required array");
     const page = _arr?.length;
     info("S3_renderNextPage : ", page);
-    await renderPage(_arr[page - 1], page, pageScale, pageRotation);
+    await PDF.load_render_canvas(_arr[page - 1], page, pageScale, pageRotation);
   };
 
   const S3_renderAllPage = async (_arrayRef) => {
@@ -185,7 +239,12 @@ function PdfView({ url, changeUrl }) {
     info("S3_renderAllCanvas : ", _arrayRef);
 
     for (let i = 1; i <= _arrayRef?.length; i++) {
-      await renderPage(_arrayRef[i - 1], i, pageScale, pageRotation);
+      await PDF.load_render_canvas(
+        _arrayRef[i - 1],
+        i,
+        pageScale,
+        pageRotation,
+      );
     }
     setDisableObserver(() => true);
     setTriggerDefaultJumpPage(() => !triggerDefaultJumpPage);
@@ -210,22 +269,21 @@ function PdfView({ url, changeUrl }) {
   const S2_createNextCanvas = () => {
     setCanvasStoreArrayRef((prev) => [...prev, createRef()]);
     setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
-    info("S2_createNextanvas created 1x ");
+    info("S2_createNextanvas created 1 canvas ");
   };
 
   const S1_loadPdf = async (_url) => {
     if (!_url) return;
+    const ADDRESS = "http://localhost:5173/";
     setPdfReady(() => false);
     localStorage.setItem("url", _url);
-    await PDF?.loadPdf(_url);
+    const getResponse = await fetch(`${ADDRESS}${_url}`);
+    const blob = await getResponse.blob();
+    const pdfUrl = URL.createObjectURL(blob);
+    await PDF?.loadPdf(pdfUrl);
+    setPdfSize(() => blob.size);
     setPdfReady(() => true);
     setTriggerRerenderS2(() => !triggerRerenderS2);
-  };
-
-  const renderPage = async (canvas, pageNumber, scale, rotation) => {
-    if (!PDF?.pdf) return;
-    await PDF?.loadPage(pageNumber);
-    await PDF?.renderPage(canvas, pageNumber, scale, rotation);
   };
 
   //   const pindex = pageIndex + 2;
@@ -267,7 +325,6 @@ function PdfView({ url, changeUrl }) {
     if (canvasStoreArrayRef?.length <= 5) return;
     const watchPage =
       canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current;
-
     lazyLoadNextPageOBS?.observe(watchPage);
     // canvasArray.forEach((element) => obs.observe(element?.current));
   };
@@ -311,19 +368,11 @@ function PdfView({ url, changeUrl }) {
       className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden "
     >
       <ResponsiveLayout>
-        <div className="w-full h-[7%] outline-1 shadow-md ">
+        <div className="w-full h-[7%]  shadow-md ">
           <Dashboard isPageLoaded={isPdfReady} changeUrl={changeUrl} />
-          <div className="flex justify-center items-center">
-            <Button onClick={() => S2_createNextCanvas()}>add canvas 1</Button>
-            <Button onClick={() => setPageTotalCount(() => 100)}>
-              render canvas
-            </Button>
-            <Button onClick={() => setPageRotation(90)}>rotation</Button>
-            <Button onClick={() => setPageIndex(() => 100)}>page index</Button>
-            <Button onClick={() => S2_createNextCanvas()}>next page</Button>
-          </div>
-          <hr className="opacity-5" />
         </div>
+        <hr className="opacity-5 mt-0.5" />
+
         <div
           ref={scrollRef}
           id="obs_root"
@@ -331,8 +380,14 @@ function PdfView({ url, changeUrl }) {
         >
           {canvasStoreArrayRef?.map((ref, index) => (
             <motion.canvas
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{
+                duration: 0.1,
+                type: "spring",
+                stiffness: 500,
+                damping: 30,
+              }}
               // viewport={{ root: scrollRef }}
               data-index={index + 1}
               id={`canvas-${index + 1}`}
