@@ -21,6 +21,7 @@ const ResponsiveLayout = ({ children }) => {
 // npm install pdfjs-dist --save-dev
 //@mui   clsx  react react-router  motion
 import { Button, LinearProgress } from "@mui/material";
+import { AnimatePresence, motion } from "motion/react";
 import { v4 as uuidv4 } from "uuid";
 //---------------------------------------------------------------------
 import { Routes, Route, useNavigate } from "react-router";
@@ -166,7 +167,7 @@ function PdfView({ url, changeUrl }) {
   const [pageRotation, setPageRotation] = useState(0);
   const [disableObserver, setDisableObserver] = useState(false);
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-
+  const scrollRef = useRef(null);
   const S3_renderNextPage = async (_arr) => {
     if (!isPdfReady) return info("S3_renderNextPage pending Processing pdf");
     if (!PDF?.pdf)
@@ -245,49 +246,12 @@ function PdfView({ url, changeUrl }) {
     }
   };
 
-  const lazyLoadOpacityOBS = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          if (!disableObserver) {
-            localStorage.setItem(
-              "default_page_view",
-              entry.target.dataset.index,
-            );
-          }
-          entry.target.style.opacity = 1;
-        } else {
-          entry.target.style.opacity = 0;
-        }
-      });
-    },
-    {
-      root: document.getElementById("obs_root"),
-      rootMargin: "0px", // No margin around the root
-      threshold: 0.01,
-    },
-  );
-  const lazyLoadOpacity = () => {
-    canvasStoreArrayRef.forEach((ref) => {
-      lazyLoadOpacityOBS.observe(ref.current);
-    });
-  };
   const lazyLoadNextPageOBS = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           S2_createNextCanvas();
-          lazyLoadOpacityOBS.unobserve(entry.target);
-          // Observe the next page (e.g., page 9 after page 8)
-          const nextPageIndex = canvasStoreArrayRef.length - 1;
-          if (
-            canvasStoreArrayRef[nextPageIndex] &&
-            canvasStoreArrayRef[nextPageIndex + 1]
-          ) {
-            lazyLoadNextPageOBS.observe(
-              canvasStoreArrayRef[nextPageIndex + 1].current,
-            );
-          }
+          lazyLoadNextPageOBS.unobserve(entry.target);
         }
       });
     },
@@ -335,11 +299,17 @@ function PdfView({ url, changeUrl }) {
   useEffect(() => {
     localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
     lazyLoadNextPage();
-    lazyLoadOpacity();
   }, [canvasStoreArrayRef]);
 
   return (
-    <div className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden ">
+    <motion.div
+      key="pdfview/main"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden "
+    >
       <ResponsiveLayout>
         <div className="w-full h-[7%] outline-1 shadow-md ">
           <Dashboard isPageLoaded={isPdfReady} changeUrl={changeUrl} />
@@ -355,23 +325,25 @@ function PdfView({ url, changeUrl }) {
           <hr className="opacity-5" />
         </div>
         <div
+          ref={scrollRef}
           id="obs_root"
           className=" gap-1   h-[93%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
         >
           {canvasStoreArrayRef?.map((ref, index) => (
-            <canvas
+            <motion.canvas
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              // viewport={{ root: scrollRef }}
               data-index={index + 1}
               id={`canvas-${index + 1}`}
               key={index + 1}
               ref={ref}
-              className={clsx(
-                "opacity-0 w-[100%]  shadow-md transition-all  duration-70 ease-in",
-              )}
-            ></canvas>
+              className={clsx(" w-[100%]   shadow-md ")}
+            ></motion.canvas>
           ))}
         </div>
       </ResponsiveLayout>
-    </div>
+    </motion.div>
   );
 }
 
@@ -413,14 +385,20 @@ const BrowserList = ({ changeUrl }) => {
   const url2 = "/Learning the bash Shell, 3rd Edition (3).pdf";
   const url3 = "https://mozilla.github.io/pdf.js/web/viewer.html";
   return (
-    <div className="w-full h-full flex flex-col items-center">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full h-full flex flex-col items-center"
+    >
       <div></div>
       <div className="flex justify-center">
         <Button onClick={() => _changeUrl(url1)}>jsvascript book</Button>
         <Button onClick={() => _changeUrl(url2)}>bash book</Button>
         <Button onClick={() => _changeUrl(url3)}>test https</Button>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
