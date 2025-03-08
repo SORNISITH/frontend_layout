@@ -1,5 +1,14 @@
+function watchTime() {
+  const date = new Date();
+  const mm = date.getMilliseconds();
+  return mm;
+}
+
 function info(...args) {
-  console.log("=> info : ", ...args);
+  console.log(" => info : ", ...args);
+}
+function log(...args) {
+  console.log("=> log : ", ...args);
 }
 function err(...args) {
   console.error("=> error : ", ...args);
@@ -21,7 +30,7 @@ const ResponsiveLayout = ({ children }) => {
 // npm install pdfjs-dist --save-dev
 //@mui   clsx  react react-router  motion
 import { Button, LinearProgress } from "@mui/material";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 //---------------------------------------------------------------------
 import { Routes, Route, useNavigate } from "react-router";
 import NoteFound from "@/pages/404";
@@ -40,10 +49,6 @@ class PDF_JS_DIST {
 
     // fix error render canvas
     this.pageRendering = false;
-  }
-  cleanPage() {
-    if (!this.page) return;
-    this.page.clear();
   }
   async loadPdf(_url) {
     if (!this.lip) return;
@@ -66,6 +71,7 @@ class PDF_JS_DIST {
       err("=> error obj load page : " + error);
     }
   }
+
   //TODO :Error
   async renderPageSvg(canvasRef, pageNumber, scale, rotation) {
     try {
@@ -271,17 +277,27 @@ function PdfView({ url, changeUrl }) {
     setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
     info("S2_createNextanvas created 1 canvas ");
   };
-
-  const S1_loadPdf = async (_url) => {
+  const S1_loadPdf = async (_url, type) => {
     if (!_url) return;
-    const ADDRESS = "http://localhost:5173/";
     setPdfReady(() => false);
     localStorage.setItem("url", _url);
-    const getResponse = await fetch(`${ADDRESS}${_url}`);
-    const blob = await getResponse.blob();
-    const pdfUrl = URL.createObjectURL(blob);
-    await PDF?.loadPdf(pdfUrl);
-    setPdfSize(() => blob.size);
+
+    async function converToBlob() {
+      const ADDRESS = "http://localhost:5173/";
+      const getResponse = await fetch(`${ADDRESS}${_url}`);
+      const blob = await getResponse.blob();
+      const pdfUrl = URL.createObjectURL(blob);
+      await PDF?.loadPdf(pdfUrl);
+      setPdfSize(() => blob.size);
+    }
+    async function directGetUrl() {
+      await PDF?.loadPdf(_url);
+    }
+    if (type == "direct") {
+      await directGetUrl();
+    } else if (type == "auth") {
+      await converToBlob();
+    }
     setPdfReady(() => true);
     setTriggerRerenderS2(() => !triggerRerenderS2);
   };
@@ -330,7 +346,8 @@ function PdfView({ url, changeUrl }) {
   };
 
   useEffect(() => {
-    S1_loadPdf(url);
+    S1_loadPdf(url, "direct"); // for dev
+    // S1_loadPdf(url, "auth"); // for production
   }, [url]);
 
   useEffect(() => {
