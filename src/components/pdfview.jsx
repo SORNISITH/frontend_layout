@@ -24,6 +24,7 @@ const ResponsiveLayout = ({ children }) => {
 // npm install pdfjs-dist --save-dev
 //@mui   clsx  react react-router  motion
 import { Button, LinearProgress } from "@mui/material";
+import ViewWeekRoundedIcon from "@mui/icons-material/ViewWeekRounded";
 import { motion } from "motion/react";
 //---------------------------------------------------------------------
 import { Routes, Route, useNavigate } from "react-router";
@@ -213,6 +214,12 @@ const PDF = new PDF_JS_DIST();
 function PdfViewEngine({ url, setUrl }) {
   let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") - 1 || 1;
   let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
+  let DEFAULT_SIDE_BAR = localStorage.getItem("side_bar");
+  //layout
+  const [toggleSideBar, setToggleSideBar] = useState(() => {
+    const storedValue = localStorage.getItem("side_bar");
+    return storedValue === "true"; // Convert string to boolean
+  });
   //  trigger
   const [isPdfReady, setPdfReady] = useState(false);
   const [triggerRerenderS2, setTriggerRerenderS2] = useState(false);
@@ -226,7 +233,7 @@ function PdfViewEngine({ url, setUrl }) {
   const [pageScale, setPageScale] = useState(2);
   const [pageRotation, setPageRotation] = useState(0);
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-
+  const [maxPage, setMaxPage] = useState(null);
   const S3_renderNextPage = async () => {
     const _arr = canvasStoreArrayRef;
     if (!isPdfReady) return info("S3_renderNextPage pending Processing pdf");
@@ -285,6 +292,7 @@ function PdfViewEngine({ url, setUrl }) {
     // }
     //
     await PDF?.loadPdf(_url);
+    setMaxPage(() => PDF?.totalPage);
     setPdfReady(() => true);
     setTriggerRerenderS2(() => !triggerRerenderS2);
   };
@@ -326,9 +334,9 @@ function PdfViewEngine({ url, setUrl }) {
       });
     },
     {
-      // root: document.getElementById("obs_root"),
+      root: document.getElementById("obs_root"),
       rootMargin: "100px", // No margin around the root
-      threshold: 0.3,
+      threshold: 0.5,
     },
   );
 
@@ -348,6 +356,9 @@ function PdfViewEngine({ url, setUrl }) {
   useEffect(() => {
     S1_loadPdf(url); // for dev
   }, [url]);
+  useEffect(() => {
+    info(maxPage);
+  }, [maxPage]);
 
   useEffect(() => {
     S2_createAllCanvas(DEFAULT_PAGE_TOTAL);
@@ -374,7 +385,9 @@ function PdfViewEngine({ url, setUrl }) {
     watchLazyLoadNextPage();
     watchLazyDefaultView();
   }, [canvasStoreArrayRef]);
-
+  useEffect(() => {
+    localStorage.setItem("side_bar", toggleSideBar);
+  }, [toggleSideBar]);
   const dashboardState = {
     url,
     setUrl,
@@ -382,6 +395,11 @@ function PdfViewEngine({ url, setUrl }) {
     setPageRotation,
     setPageScale,
     setPageIndex,
+  };
+  const handleToggleSidebar = () => {
+    setToggleSideBar((prev) => {
+      !prev;
+    });
   };
 
   return (
@@ -391,18 +409,30 @@ function PdfViewEngine({ url, setUrl }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-[100%] h-[100%] 2xl:w-[50%] xl:w-[65%] lg:w-[80%] md:w-[99%]   bg-zinc-100  flex items-center justify-center  overflow-hidden "
+      className="w-[100%] h-[100%] min-h-screen  overflow-hidden flex justify-center"
     >
-      <div className="w-full h-full">
-        <div className="w-full h-[7%]  shadow-md ">
+      <div className="w-full h-full 2xl:w-[50%] xl:w-[65%] lg:w-[80%] md:w-[100%]   bg-zinc-100  flex flex-col gap-[2px] items-center justify-center ">
+        <div className=" w-full h-[5%] shadow-md ">
           <Dashboard dashboardState={dashboardState} />
         </div>
-        <div className="w-[100%]  flex h-[90%] relative  gap-1">
-          <div className="bg-amber-300 opacity-50 h-full w-[25%] sticky"></div>
-          <div className=" h-full w-full">
+        <div className="w-[100%]  flex h-[95%] relative  gap-[1px]">
+          <motion.div
+            initial={{ width: "0%" }}
+            animate={{ width: toggleSideBar == "true" ? "25%" : "0%" }}
+            transition={{ duration: 0.5 }}
+          >
+            <SidePdfViewEngine />
+          </motion.div>
+          <div className=" h-full w-full flex relative">
+            <div
+              onClick={() => handleToggleSidebar()}
+              className="w-[40px] absolute top-0 z-50 h-[40px] "
+            >
+              <ViewWeekRoundedIcon color="action" className="cursor-pointer" />
+            </div>
             <div
               id="obs_root"
-              className=" gap-1   h-[100%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
+              className="gap-[2px]   h-[100%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
             >
               {canvasStoreArrayRef?.map((ref, index) => (
                 <motion.canvas
@@ -433,27 +463,22 @@ function PdfViewEngine({ url, setUrl }) {
 const Dashboard = ({ dashboardState }) => {
   const navigate = useNavigate();
   return (
-    <div className="w-[100%]   bg-zinc-100 z-10  h-full  ">
-      <div className="w-full h-full">
-        <Button onClick={() => navigate("/")}>Back</Button>
-        <Button
-          onClick={() =>
-            dashboardState.setUrl(() => "/Eloquent_JavaScript.pdf")
-          }
-        >
-          set url
-        </Button>
-        <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
-        <Button onClick={() => navigate("/pdfview/")}>list page</Button>
-      </div>
-      <div className="w-full">
-        <LinearProgress
-          variant="indeterminate"
-          sx={{
-            display: dashboardState.isPdfReady ? "none" : "block",
-          }}
-        />
-      </div>
+    <div className="w-full h-full ">
+      <Button onClick={() => navigate("/")}>Back</Button>
+      <Button
+        onClick={() => dashboardState.setUrl(() => "/Eloquent_JavaScript.pdf")}
+      >
+        set url
+      </Button>
+      <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
+      <Button onClick={() => navigate("/pdfview/")}>list page</Button>
+      <div className="w-full"></div>
+      <LinearProgress
+        variant="indeterminate"
+        sx={{
+          display: dashboardState.isPdfReady ? "none" : "block",
+        }}
+      />
     </div>
   );
 };
@@ -486,8 +511,8 @@ const BrowserList = ({ setUrl }) => {
     </motion.div>
   );
 };
-const sidePdfViewEngine = () => {
-  return <div className="bg-red-400 h-100%">helllllll</div>;
+const SidePdfViewEngine = () => {
+  return <div className="w-full h-full  "></div>;
 };
 export default function PdfPage() {
   var DEFAULT_URL = localStorage.getItem("url");

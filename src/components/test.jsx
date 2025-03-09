@@ -10,8 +10,8 @@ export default function Test() {
     lazyload.observe(myref.current);
   });
   return (
-    <div className="w-full   flex flex-col    gap-10  ">
-      <div className=" w-full flex-col flex items-center gap-10 overflow-scroll">
+    <div className="w-full   flex flex-col    gap-[1px]0  ">
+      <div className=" w-full flex-col flex items-center gap-[1px]0 overflow-scroll">
         <div className="h-100 w-100 bg-amber-300"></div>
         <div className="h-100 w-100 bg-amber-300"></div>
         <div className="h-100 w-100 bg-amber-300"></div>
