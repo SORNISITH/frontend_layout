@@ -210,7 +210,7 @@ class PDF_JS_DIST {
 //-------------------------------------------------------------------------------
 const PDF = new PDF_JS_DIST();
 
-function PdfMainPage({ url, setUrl }) {
+function PdfViewEngine({ url, setUrl }) {
   let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") - 1 || 1;
   let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
   //  trigger
@@ -326,7 +326,7 @@ function PdfMainPage({ url, setUrl }) {
       });
     },
     {
-      root: document.getElementById("obs_root"),
+      // root: document.getElementById("obs_root"),
       rootMargin: "100px", // No margin around the root
       threshold: 0.3,
     },
@@ -391,38 +391,41 @@ function PdfMainPage({ url, setUrl }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-[100%] h-[100%]  flex flex-col items-center  overflow-hidden "
+      className="w-[100%] h-[100%] 2xl:w-[50%] xl:w-[65%] lg:w-[80%] md:w-[99%]   bg-zinc-100  flex items-center justify-center  overflow-hidden "
     >
-      <ResponsiveLayout>
+      <div className="w-full h-full">
         <div className="w-full h-[7%]  shadow-md ">
           <Dashboard dashboardState={dashboardState} />
         </div>
-        <hr className="opacity-5 mt-0.5" />
-
-        <div
-          id="obs_root"
-          className=" gap-1   h-[93%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
-        >
-          {canvasStoreArrayRef?.map((ref, index) => (
-            <motion.canvas
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{
-                duration: 0.1,
-                type: "spring",
-                stiffness: 500,
-                damping: 30,
-              }}
-              // viewport={{ root: scrollRef }}
-              data-index={index + 1}
-              id={`canvas-${index + 1}`}
-              key={index + 1}
-              ref={ref}
-              className={clsx(" w-[100%]   shadow-md ")}
-            ></motion.canvas>
-          ))}
+        <div className="w-[100%]  flex h-[90%] relative  gap-1">
+          <div className="bg-amber-300 opacity-50 h-full w-[25%] sticky"></div>
+          <div className=" h-full w-full">
+            <div
+              id="obs_root"
+              className=" gap-1   h-[100%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
+            >
+              {canvasStoreArrayRef?.map((ref, index) => (
+                <motion.canvas
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  transition={{
+                    duration: 0.1,
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 30,
+                  }}
+                  // viewport={{ root: scrollRef }}
+                  data-index={index + 1}
+                  id={`canvas-${index + 1}`}
+                  key={index + 1}
+                  ref={ref}
+                  className={clsx(" w-[100%]   shadow-md ")}
+                ></motion.canvas>
+              ))}
+            </div>
+          </div>
         </div>
-      </ResponsiveLayout>
+      </div>
     </motion.div>
   );
 }
@@ -441,7 +444,7 @@ const Dashboard = ({ dashboardState }) => {
           set url
         </Button>
         <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
-        <Button onClick={() => navigate("/pdfview/list")}>list page</Button>
+        <Button onClick={() => navigate("/pdfview/")}>list page</Button>
       </div>
       <div className="w-full">
         <LinearProgress
@@ -463,11 +466,10 @@ const BrowserList = ({ setUrl }) => {
       localStorage.setItem("default_page_total", 6);
       setUrl(() => url);
     }
-    navigate("/pdfview");
+    navigate("/pdfview/engine");
   };
   const url1 = "/Eloquent_JavaScript.pdf";
   const url2 = "/Learning the bash Shell, 3rd Edition (3).pdf";
-  const url3 = "https://mozilla.github.io/pdf.js/web/viewer.html";
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -480,12 +482,13 @@ const BrowserList = ({ setUrl }) => {
       <div className="flex justify-center">
         <Button onClick={() => _setUrl(url1)}>jsvascript book</Button>
         <Button onClick={() => _setUrl(url2)}>bash book</Button>
-        <Button onClick={() => _setUrl(url3)}>test https</Button>
       </div>
     </motion.div>
   );
 };
-
+const sidePdfViewEngine = () => {
+  return <div className="bg-red-400 h-100%">helllllll</div>;
+};
 export default function PdfPage() {
   var DEFAULT_URL = localStorage.getItem("url");
   if (!DEFAULT_URL) {
@@ -495,8 +498,11 @@ export default function PdfPage() {
   return (
     <Routes>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
-      <Route path="list" element={<BrowserList setUrl={setUrl} />}></Route>
-      <Route index element={<PdfMainPage url={url} setUrl={setUrl} />}></Route>
+      <Route index element={<BrowserList setUrl={setUrl} />}></Route>
+      <Route
+        path="engine"
+        element={<PdfViewEngine url={url} setUrl={setUrl} />}
+      ></Route>
     </Routes>
   );
 }
