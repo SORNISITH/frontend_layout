@@ -23,6 +23,7 @@ const ResponsiveLayout = ({ children }) => {
 
 // npm install pdfjs-dist --save-dev
 //@mui   clsx  react react-router  motion
+import KeyboardDoubleArrowRightRoundedIcon from "@mui/icons-material/KeyboardDoubleArrowRightRounded";
 import { Button, LinearProgress } from "@mui/material";
 import ViewWeekRoundedIcon from "@mui/icons-material/ViewWeekRounded";
 import { motion } from "motion/react";
@@ -431,6 +432,32 @@ function PdfViewEngine({ url, setUrl }) {
                 color="action"
                 className=" ml-2 cursor-pointer"
               />
+              <div className="w-full gap-3 flex justify-center items-center">
+                <span className="rotate-180 cursor-pointer flex items-center justify-center">
+                  <KeyboardDoubleArrowRightRoundedIcon color="action" />
+                </span>
+                <span className=" cursor-pointer flex items-center justify-center">
+                  <input
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                    type="number"
+                    className="w-[40px] focus:outline-0"
+                    onInput={(e) =>
+                      (e.target.value = e.target.value.replace(/\D/g, ""))
+                    }
+                  />
+                </span>
+                <span className=" cursor-pointer flex items-center justify-center">
+                  <p>||</p>
+                </span>
+                <span className=" cursor-pointer flex items-center justify-center">
+                  {maxPage}
+                </span>
+
+                <span className=" cursor-pointer flex items-center justify-center">
+                  <KeyboardDoubleArrowRightRoundedIcon color="action" />
+                </span>
+              </div>
             </div>
             <div
               id="obs_root"
