@@ -281,7 +281,6 @@ function PdfViewEngine({ url, setUrl }) {
   const S1_loadPdf = async (_url) => {
     if (!_url) return;
     setPdfReady(() => false);
-    localStorage.setItem("url", _url);
     // async function converToBlob() {
     //   const ADDRESS = "http://localhost:5173/";
     //   const getResponse = await fetch(`${ADDRESS}${_url}`);
@@ -354,7 +353,9 @@ function PdfViewEngine({ url, setUrl }) {
     });
   };
   useEffect(() => {
-    S1_loadPdf(url); // for dev
+    S1_loadPdf(url);
+    localStorage.setItem("url", url);
+    // for dev
   }, [url]);
   useEffect(() => {
     info(maxPage);
@@ -397,9 +398,7 @@ function PdfViewEngine({ url, setUrl }) {
     setPageIndex,
   };
   const handleToggleSidebar = () => {
-    setToggleSideBar((prev) => {
-      !prev;
-    });
+    setToggleSideBar(() => !toggleSideBar);
   };
 
   return (
@@ -418,17 +417,20 @@ function PdfViewEngine({ url, setUrl }) {
         <div className="w-[100%]  flex h-[95%] relative  gap-[1px]">
           <motion.div
             initial={{ width: "0%" }}
-            animate={{ width: toggleSideBar == "true" ? "25%" : "0%" }}
-            transition={{ duration: 0.5 }}
+            animate={{ width: toggleSideBar ? "25%" : "0%" }}
+            transition={{
+              duration: 0.2,
+            }}
           >
             <SidePdfViewEngine />
           </motion.div>
           <div className=" h-full w-full flex relative">
-            <div
-              onClick={() => handleToggleSidebar()}
-              className="w-[40px] absolute top-0 z-50 h-[40px] "
-            >
-              <ViewWeekRoundedIcon color="action" className="cursor-pointer" />
+            <div className="w-[100%]  bg-zinc-400/10 absolute top-0 z-50 h-[30px] flex items-center justify-start ">
+              <ViewWeekRoundedIcon
+                onClick={() => handleToggleSidebar()}
+                color="action"
+                className=" ml-2 cursor-pointer"
+              />
             </div>
             <div
               id="obs_root"
@@ -436,7 +438,7 @@ function PdfViewEngine({ url, setUrl }) {
             >
               {canvasStoreArrayRef?.map((ref, index) => (
                 <motion.canvas
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.98 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   transition={{
                     duration: 0.1,
@@ -487,6 +489,8 @@ const BrowserList = ({ setUrl }) => {
   const navigate = useNavigate();
   const _setUrl = (url) => {
     if (url !== localStorage.getItem("url")) {
+      info(url);
+      info(localStorage.getItem("url"));
       localStorage.setItem("default_page_view", 1);
       localStorage.setItem("default_page_total", 6);
       setUrl(() => url);
