@@ -1,9 +1,3 @@
-function watchTime() {
-  const date = new Date();
-  const mm = date.getMilliseconds();
-  return mm;
-}
-
 function info(...args) {
   console.log(" => info : ", ...args);
 }
@@ -35,7 +29,14 @@ import { motion } from "motion/react";
 import { Routes, Route, useNavigate } from "react-router";
 import NoteFound from "@/pages/404";
 import * as pdfjsLib from "pdfjs-dist";
-import { useEffect, useState, useRef, createRef, useCallback } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  createRef,
+  useCallback,
+  useMemo,
+} from "react";
 import clsx from "clsx";
 ///cdn worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -209,7 +210,7 @@ class PDF_JS_DIST {
 //-------------------------------------------------------------------------------
 const PDF = new PDF_JS_DIST();
 
-function PdfView({ url, setUrl }) {
+function PdfMainPage({ url, setUrl }) {
   let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") - 1 || 1;
   let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
   //  trigger
@@ -225,7 +226,6 @@ function PdfView({ url, setUrl }) {
   const [pageScale, setPageScale] = useState(2);
   const [pageRotation, setPageRotation] = useState(0);
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-  const scrollRef = useRef(null);
 
   const S3_renderNextPage = async () => {
     const _arr = canvasStoreArrayRef;
@@ -271,7 +271,7 @@ function PdfView({ url, setUrl }) {
     setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
     info("S2_createNextanvas created 1 canvas ");
   };
-  const S1_loadPdf = async (_url, type) => {
+  const S1_loadPdf = async (_url) => {
     if (!_url) return;
     setPdfReady(() => false);
     localStorage.setItem("url", _url);
@@ -338,7 +338,6 @@ function PdfView({ url, setUrl }) {
     const watchPage =
       canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current;
     lazyLoadNextPageOBS?.observe(watchPage);
-    // canvasArray.forEach((element) => obs.observe(element?.current));
   };
   const watchLazyDefaultView = () => {
     if (!canvasStoreArrayRef) return;
@@ -384,6 +383,7 @@ function PdfView({ url, setUrl }) {
     setPageScale,
     setPageIndex,
   };
+
   return (
     <motion.div
       key="pdfview/main"
@@ -400,7 +400,6 @@ function PdfView({ url, setUrl }) {
         <hr className="opacity-5 mt-0.5" />
 
         <div
-          ref={scrollRef}
           id="obs_root"
           className=" gap-1   h-[93%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
         >
@@ -448,7 +447,7 @@ const Dashboard = ({ dashboardState }) => {
         <LinearProgress
           variant="indeterminate"
           sx={{
-            display: dashboardState.isPageLoaded ? "none" : "block",
+            display: dashboardState.isPdfReady ? "none" : "block",
           }}
         />
       </div>
@@ -456,14 +455,14 @@ const Dashboard = ({ dashboardState }) => {
   );
 };
 
-const BrowserList = ({ changeUrl }) => {
+const BrowserList = ({ setUrl }) => {
   const navigate = useNavigate();
-  const _changeUrl = (url) => {
-    // if (url !== localStorage.getItem("url")) {
-    //   localStorage.setItem("default_page_view", 1);
-    //   localStorage.setItem("default_page_total", 6);
-    // }
-    changeUrl(() => url);
+  const _setUrl = (url) => {
+    if (url !== localStorage.getItem("url")) {
+      localStorage.setItem("default_page_view", 1);
+      localStorage.setItem("default_page_total", 6);
+      setUrl(() => url);
+    }
     navigate("/pdfview");
   };
   const url1 = "/Eloquent_JavaScript.pdf";
@@ -479,9 +478,9 @@ const BrowserList = ({ changeUrl }) => {
     >
       <div></div>
       <div className="flex justify-center">
-        <Button onClick={() => _changeUrl(url1)}>jsvascript book</Button>
-        <Button onClick={() => _changeUrl(url2)}>bash book</Button>
-        <Button onClick={() => _changeUrl(url3)}>test https</Button>
+        <Button onClick={() => _setUrl(url1)}>jsvascript book</Button>
+        <Button onClick={() => _setUrl(url2)}>bash book</Button>
+        <Button onClick={() => _setUrl(url3)}>test https</Button>
       </div>
     </motion.div>
   );
@@ -493,12 +492,11 @@ export default function PdfPage() {
     DEFAULT_URL = "/Eloquent_JavaScript.pdf";
   }
   const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
-
   return (
     <Routes>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
-      <Route path="list" element={<BrowserList changeUrl={setUrl} />}></Route>
-      <Route index element={<PdfView url={url} changeUrl={setUrl} />}></Route>
+      <Route path="list" element={<BrowserList setUrl={setUrl} />}></Route>
+      <Route index element={<PdfMainPage url={url} setUrl={setUrl} />}></Route>
     </Routes>
   );
 }
