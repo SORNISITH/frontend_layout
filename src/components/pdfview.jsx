@@ -298,7 +298,7 @@ function PdfViewEngine({ url, setUrl }) {
   };
 
   const jumpToPage = (target) => {
-    const _target = Number(target) || 1;
+    const _target = Number(target) || 0;
     if (!_target) return info("@param 1 target not defined");
     if (pageTotalCount < pageIndex) {
       info("page view bigger");
@@ -379,7 +379,8 @@ function PdfViewEngine({ url, setUrl }) {
   }, [pageView]);
 
   useEffect(() => {
-    jumpToPage(pageIndex);
+    jumpToPage(pageIndex - 1);
+    info(pageIndex);
   }, [pageIndex]);
 
   useEffect(() => {
@@ -401,7 +402,9 @@ function PdfViewEngine({ url, setUrl }) {
   const handleToggleSidebar = () => {
     setToggleSideBar(() => !toggleSideBar);
   };
-
+  const handleValueInput = (event) => {
+    setPageIndex(() => event.target.value);
+  };
   return (
     <motion.div
       key="pdfview/main"
@@ -426,36 +429,45 @@ function PdfViewEngine({ url, setUrl }) {
             <SidePdfViewEngine />
           </motion.div>
           <div className=" h-full w-full flex relative">
-            <div className="w-[100%]  bg-zinc-400/10 absolute top-0 z-50 h-[30px] flex items-center justify-start ">
+            <div className="w-[100%]  bg-zinc-400/10 absolute top-0 z-50 h-[40px] flex items-center justify-start ">
               <ViewWeekRoundedIcon
                 onClick={() => handleToggleSidebar()}
                 color="action"
+                fontSize="medium"
                 className=" ml-2 cursor-pointer"
               />
-              <div className="w-full gap-3 flex justify-center items-center">
-                <span className="rotate-180 cursor-pointer flex items-center justify-center">
-                  <KeyboardDoubleArrowRightRoundedIcon color="action" />
-                </span>
-                <span className=" cursor-pointer flex items-center justify-center">
+              <div className="w-full gap-3 flex justify-center items-center ">
+                <motion.span className="h-full rotate-180 cursor-pointer flex items-center justify-center">
+                  <KeyboardDoubleArrowRightRoundedIcon
+                    fontSize="large"
+                    color="action"
+                  />
+                </motion.span>
+                <motion.span className=" cursor-pointer flex items-center justify-center">
                   <input
+                    onChange={handleValueInput}
+                    value={pageIndex}
                     pattern="[0-9]*"
                     inputMode="numeric"
                     type="number"
-                    className="w-[40px] focus:outline-0"
-                    onInput={(e) =>
-                      (e.target.value = e.target.value.replace(/\D/g, ""))
-                    }
+                    className="w-[40px] focus:outline-0 "
+                    // onInput={(e) =>
+                    //   (e.target.value = e.target.value.replace(/\D/g, ""))
+                    // }
                   />
-                </span>
+                </motion.span>
                 <span className=" cursor-pointer flex items-center justify-center">
-                  <p>||</p>
+                  <p>|</p>
                 </span>
                 <span className=" cursor-pointer flex items-center justify-center">
                   {maxPage}
                 </span>
 
                 <span className=" cursor-pointer flex items-center justify-center">
-                  <KeyboardDoubleArrowRightRoundedIcon color="action" />
+                  <KeyboardDoubleArrowRightRoundedIcon
+                    fontSize="large"
+                    color="action"
+                  />
                 </span>
               </div>
             </div>
