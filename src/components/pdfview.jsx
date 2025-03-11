@@ -10,6 +10,7 @@ function err(...args) {
 function warn(...args) {
   console.warn("=> warn : ", ...args);
 }
+
 function table(obj) {
   console.table(obj);
 }
@@ -255,6 +256,7 @@ function PdfViewEngine({ url, setUrl }) {
     for (let i = 1; i <= _arr?.length; i++) {
       await PDF.load_render_canvas(_arr[i - 1], i, pageScale, pageRotation);
     }
+    jumpToPage(localStorage.getItem("default_page_view"));
     setPageView(() => DEFAULT_PAGE_VIEW);
   };
 
@@ -275,6 +277,8 @@ function PdfViewEngine({ url, setUrl }) {
   };
 
   const S2_createNextCanvas = () => {
+    if (canvasStoreArrayRef.length >= maxPage) return;
+
     setCanvasStoreArrayRef((prev) => [...prev, createRef()]);
     setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
     info("S2_createNextanvas created 1 canvas ");
@@ -296,8 +300,16 @@ function PdfViewEngine({ url, setUrl }) {
     setPdfReady(() => true);
     setTriggerRerenderS2(() => !triggerRerenderS2);
   };
+  const jumpNextPage = () => {
+    jumpToPage(pageView);
+  };
+  const jumpPrevPage = () => {
+    const page = pageView - 1;
+    jumpToPage(page);
+  };
 
   const jumpToPage = (target) => {
+    info("jumpt  ", target);
     const _target = Number(target) || 0;
     if (!_target) return info("@param 1 target not defined");
     if (pageTotalCount < pageIndex) {
@@ -315,6 +327,7 @@ function PdfViewEngine({ url, setUrl }) {
         if (entry.isIntersecting) {
           const eleIndex = entry.target.dataset.index;
           localStorage.setItem("default_page_view", eleIndex);
+          setPageView(() => eleIndex);
         }
       });
     },
@@ -375,12 +388,7 @@ function PdfViewEngine({ url, setUrl }) {
   }, [triggerRerenderNextPage]);
 
   useEffect(() => {
-    jumpToPage(pageView);
-  }, [pageView]);
-
-  useEffect(() => {
-    jumpToPage(pageIndex - 1);
-    info(pageIndex);
+    jumpToPage(pageIndex);
   }, [pageIndex]);
 
   useEffect(() => {
@@ -437,33 +445,40 @@ function PdfViewEngine({ url, setUrl }) {
                 className=" ml-2 cursor-pointer"
               />
               <div className="w-full gap-3 flex justify-center items-center ">
-                <motion.span className="h-full rotate-180 cursor-pointer flex items-center justify-center">
+                <motion.span
+                  onClick={jumpPrevPage}
+                  className="h-full rotate-180 cursor-pointer flex items-center justify-center"
+                >
                   <KeyboardDoubleArrowRightRoundedIcon
                     fontSize="large"
                     color="action"
                   />
                 </motion.span>
                 <motion.span className=" cursor-pointer flex items-center justify-center">
-                  <input
-                    onChange={handleValueInput}
-                    value={pageIndex}
-                    pattern="[0-9]*"
-                    inputMode="numeric"
-                    type="number"
-                    className="w-[40px] focus:outline-0 "
-                    // onInput={(e) =>
-                    //   (e.target.value = e.target.value.replace(/\D/g, ""))
-                    // }
-                  />
+                  {pageView}
+                  {/* <input */}
+                  {/*   onChange={handleValueInput} */}
+                  {/*   value={pageIndex} */}
+                  {/*   pattern="[0-9]*" */}
+                  {/*   inputMode="numeric" */}
+                  {/*   type="number" */}
+                  {/*   className="w-[40px] focus:outline-0 " */}
+                  {/*   // onInput={(e) => */}
+                  {/*   //   (e.target.value = e.target.value.replace(/\D/g, "")) */}
+                  {/*   // } */}
+                  {/* /> */}
                 </motion.span>
                 <span className=" cursor-pointer flex items-center justify-center">
-                  <p>|</p>
+                  <p>/</p>
                 </span>
                 <span className=" cursor-pointer flex items-center justify-center">
                   {maxPage}
                 </span>
 
-                <span className=" cursor-pointer flex items-center justify-center">
+                <span
+                  onClick={jumpNextPage}
+                  className=" cursor-pointer flex items-center justify-center"
+                >
                   <KeyboardDoubleArrowRightRoundedIcon
                     fontSize="large"
                     color="action"
