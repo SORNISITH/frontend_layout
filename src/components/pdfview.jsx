@@ -228,9 +228,8 @@ function PdfViewEngine({ url, setUrl }) {
   const [triggerRerenderS3, setTriggerRerenderS3] = useState(false);
   const [triggerRerenderNextPage, setTriggerRerenderNextPage] = useState(false);
   // Page behav
-
   const [pageIndex, setPageIndex] = useState(null);
-  const [pageView, setPageView] = useState(null);
+  const [pageCurrentView, setPageView] = useState(null);
   const [pageTotalCount, setPageTotalCount] = useState(DEFAULT_PAGE_TOTAL);
   const [pageScale, setPageScale] = useState(2);
   const [pageRotation, setPageRotation] = useState(0);
@@ -301,20 +300,28 @@ function PdfViewEngine({ url, setUrl }) {
     setTriggerRerenderS2(() => !triggerRerenderS2);
   };
   const jumpNextPage = () => {
-    S2_createNextCanvas();
-    jumpToPage(pageView);
+    const l = canvasStoreArrayRef.length;
+    const _target = Number(pageCurrentView);
+    if (l <= pageCurrentView) {
+      // protect if no more page
+      S2_createNextCanvas();
+    }
+    jumpToPage(_target + 1);
   };
   const jumpPrevPage = () => {
-    jumpToPage(2);
+    const _target = Number(pageCurrentView);
+    jumpToPage(_target - 1);
   };
 
   const jumpToPage = (target) => {
-    const _target = Number(target) || 0;
+    const _target = Number(target) || 1;
+    if (_target <= 0) return;
     if (!_target) return info("@param 1 target not defined");
-    if (pageTotalCount < pageIndex) {
-      info("page view bigger");
+    if (canvasStoreArrayRef.length <= _target) {
+      setPageTotalCount(() => _target + 1);
+      info("additional que");
     } else {
-      canvasStoreArrayRef[_target]?.current?.scrollIntoView({
+      canvasStoreArrayRef[_target - 1]?.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
@@ -454,7 +461,7 @@ function PdfViewEngine({ url, setUrl }) {
                   />
                 </motion.span>
                 <motion.span className=" cursor-pointer flex items-center justify-center">
-                  {pageView}
+                  {pageCurrentView}
                   {/* <input */}
                   {/*   onChange={handleValueInput} */}
                   {/*   value={pageIndex} */}
