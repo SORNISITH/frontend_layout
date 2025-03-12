@@ -301,15 +301,14 @@ function PdfViewEngine({ url, setUrl }) {
     setTriggerRerenderS2(() => !triggerRerenderS2);
   };
   const jumpNextPage = () => {
+    S2_createNextCanvas();
     jumpToPage(pageView);
   };
   const jumpPrevPage = () => {
-    const page = pageView - 1;
-    jumpToPage(page);
+    jumpToPage(2);
   };
 
   const jumpToPage = (target) => {
-    info("jumpt  ", target);
     const _target = Number(target) || 0;
     if (!_target) return info("@param 1 target not defined");
     if (pageTotalCount < pageIndex) {
