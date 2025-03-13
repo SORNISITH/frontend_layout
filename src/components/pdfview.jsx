@@ -214,9 +214,7 @@ class PDF_JS_DIST {
 const PDF = new PDF_JS_DIST();
 
 function PdfViewEngine({ url, setUrl }) {
-  let DEFAULT_PAGE_VIEW = localStorage.getItem("default_page_view") - 1 || 1;
-  let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total") || 6;
-  let DEFAULT_SIDE_BAR = localStorage.getItem("side_bar");
+  let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total");
   //layout
   const [toggleSideBar, setToggleSideBar] = useState(() => {
     const storedValue = localStorage.getItem("side_bar");
@@ -235,6 +233,7 @@ function PdfViewEngine({ url, setUrl }) {
   const [pageRotation, setPageRotation] = useState(0);
   const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
   const [maxPage, setMaxPage] = useState(null);
+
   const S3_renderNextPage = async () => {
     const _arr = canvasStoreArrayRef;
     if (!isPdfReady) return info("S3_renderNextPage pending Processing pdf");
@@ -247,6 +246,7 @@ function PdfViewEngine({ url, setUrl }) {
   };
 
   const S3_renderAllPage = async () => {
+    const getLocalPageView = localStorage.getItem("default_page_view");
     if (!isPdfReady) return info("S3_renderAllPage pending Processing pdf");
     if (!PDF?.pdf)
       return info("S3_renderAllPage checking is pdf already loaded ?");
@@ -255,14 +255,16 @@ function PdfViewEngine({ url, setUrl }) {
     for (let i = 1; i <= _arr?.length; i++) {
       await PDF.load_render_canvas(_arr[i - 1], i, pageScale, pageRotation);
     }
-    jumpToPage(localStorage.getItem("default_page_view"));
-    setPageView(() => DEFAULT_PAGE_VIEW);
+    info(getLocalPageView);
+    setPageIndex(() => getLocalPageView);
   };
 
   const S2_createAllCanvas = async (param_totalPage) => {
     if (!isPdfReady) return info("S2_createAllCanvas pending  processing pdf");
     if (!PDF?.pdf) return info("S2_createAllCanvas pdf is not yet loaded");
-    let _totalPage = Number(param_totalPage) < 6 ? 6 : param_totalPage;
+    info(param_totalPage);
+    let _totalPage = Number(param_totalPage) < 6 ? 20 : param_totalPage;
+    info(_totalPage);
     info("S2_createAllCanvas : " + _totalPage);
     if (!_totalPage) return;
     setCanvasStoreArrayRef(() => {
@@ -377,12 +379,9 @@ function PdfViewEngine({ url, setUrl }) {
     localStorage.setItem("url", url);
     // for dev
   }, [url]);
-  useEffect(() => {
-    info(maxPage);
-  }, [maxPage]);
 
   useEffect(() => {
-    S2_createAllCanvas(DEFAULT_PAGE_TOTAL);
+    S2_createAllCanvas(pageTotalCount);
   }, [triggerRerenderS2, pageTotalCount]);
 
   useEffect(() => {
@@ -396,7 +395,6 @@ function PdfViewEngine({ url, setUrl }) {
   useEffect(() => {
     jumpToPage(pageIndex);
   }, [pageIndex]);
-
   useEffect(() => {
     localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
     watchLazyLoadNextPage();
@@ -412,12 +410,10 @@ function PdfViewEngine({ url, setUrl }) {
     setPageRotation,
     setPageScale,
     setPageIndex,
+    setPageTotalCount,
   };
   const handleToggleSidebar = () => {
     setToggleSideBar(() => !toggleSideBar);
-  };
-  const handleValueInput = (event) => {
-    setPageIndex(() => event.target.value);
   };
   return (
     <motion.div
@@ -527,9 +523,7 @@ const Dashboard = ({ dashboardState }) => {
   return (
     <div className="w-full h-full ">
       <Button onClick={() => navigate("/")}>Back</Button>
-      <Button
-        onClick={() => dashboardState.setUrl(() => "/Eloquent_JavaScript.pdf")}
-      >
+      <Button onClick={() => dashboardState.setPageTotalCount(20)}>
         set url
       </Button>
       <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
@@ -576,7 +570,24 @@ const BrowserList = ({ setUrl }) => {
   );
 };
 const SidePdfViewEngine = () => {
-  return <div className="w-full h-full  "></div>;
+  const canvasRef = useRef([]);
+
+  const addCanvas = () => {
+    canvasRef.current.push(createRef());
+  };
+  useEffect(() => {});
+  return (
+    <div className="w-full h-full  flex flex-col items-center ">
+      <div>
+        <button onClick={addCanvas}>test me!</button>
+      </div>
+      <div>
+        {canvasRef.current.map((ele, index) => (
+          <canvas ref={ele} key={index}></canvas>
+        ))}
+      </div>
+    </div>
+  );
 };
 export default function PdfPage() {
   var DEFAULT_URL = localStorage.getItem("url");
