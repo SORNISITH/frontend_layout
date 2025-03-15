@@ -2,7 +2,7 @@ import FuzzyText from "@/jsrepo/FuzzyText/FuzzyText";
 import LetterGlitch from "@/jsrepo/LetterGlitch/LetterGlitch";
 export default function NoteFound({ docName }) {
   return (
-    <div className="cursor-pointer  mt-10   flex flex-col justify-center item-center">
+    <div className="cursor-pointer w-full h-full  mt-10   flex flex-col justify-center item-center">
       <div className=" h-20  flex justify-center items-center">
         <FuzzyText baseIntensity={0} hoverIntensity={0.25} enableHover={true}>
           404

@@ -14,13 +14,6 @@ function warn(...args) {
 function table(obj) {
   console.table(obj);
 }
-const ResponsiveLayout = ({ children }) => {
-  return (
-    <div className="2xl:w-[50%] xl:w-[65%] lg:w-[80%] md:w-[99%] h-full w-[100%] bg-zinc-100  ">
-      {children}
-    </div>
-  );
-};
 
 // npm install pdfjs-dist --save-dev
 //@mui   clsx  react react-router  motion
@@ -28,6 +21,7 @@ import KeyboardDoubleArrowRightRoundedIcon from "@mui/icons-material/KeyboardDou
 import { Button, LinearProgress } from "@mui/material";
 import ViewWeekRoundedIcon from "@mui/icons-material/ViewWeekRounded";
 import { motion } from "motion/react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 //---------------------------------------------------------------------
 import { Routes, Route, useNavigate } from "react-router";
 import NoteFound from "@/pages/404";
@@ -45,376 +39,59 @@ import clsx from "clsx";
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 
-class PDF_JS_DIST {
-  constructor() {
-    this.lip = pdfjsLib;
-    this.pdf = null;
-    this.page = new Map();
-
-    // fix error render canvas
-    this.pageRendering = false;
-  }
-  async loadPdf(_url) {
-    if (!this.lip) return;
-    info("fetching ... pdf : " + _url);
-    try {
-      this.pdf = await this.lip.getDocument(_url).promise;
-      info("fetching done!");
-    } catch (error) {
-      err("=> error obj load pdf : " + error);
-    }
-  }
-
-  async loadPage(number) {
-    const page = number || 1;
-    try {
-      info("Loading page ... : ", page);
-      const resultLoadPage = await this.pdf.getPage(page);
-      this.page.set(page, resultLoadPage);
-    } catch (error) {
-      err("=> error obj load page : " + error);
-    }
-  }
-
-  //TODO :Error
-  async renderPageSvg(canvasRef, pageNumber, scale, rotation) {
-    try {
-      if (this.pageRendering) {
-        warn("render engine task pending page: " + pageNumber);
-        return;
-      } else {
-        info("start rendering page : " + pageNumber);
-        this.pageRendering = true;
-        const _svgElement = canvasRef.current;
-        const _page = pageNumber || 1;
-        const _scale = scale || 1;
-        const _rotation = rotation || 0;
-        const viewport = await this.page
-          ?.get(_page)
-          ?.getViewport({ scale: _scale, rotation: _rotation });
-
-        // if (!(_svgElement instanceof HTMLCanvasElement)) {
-        //   err("Stored object is NOT a valid <canvas> element!", _svgElement);
-        // }
-        const svg = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "svg",
-        );
-        svg.setAttibute("width", viewport.height || 1);
-        svg.setAttibute("height", viewport.width || 1);
-        const PAGEOBJ = this.page.get(_page);
-        const renderTask = PAGEOBJ.getOperatorList().then(async (ops) => {
-          const svgGfx = new pdfjsLib.SVGGraphics(
-            PAGEOBJ.commonObjs,
-            PAGEOBJ.objs,
-          );
-          const svgOps = await svgGfx.getSVG(ops, viewport);
-          svg.appendChild(svgOps);
-          _svgElement.innerHtml = "";
-          _svgElement.appendChild(svg);
-        });
-        await renderTask.promise;
-        info("finish render page : " + _page);
-        this.pageRendering = false;
-      }
-    } catch (error) {
-      err(error);
-    }
-  }
-  async load_render_canvas(canvas, pageNumber, scale, rotation) {
-    if (!this?.pdf) return;
-    await this?.loadPage(pageNumber);
-    await this?.renderPage(canvas, pageNumber, scale, rotation);
-  }
-
-  async renderPage(canvasRef, pageNumber, scale, rotation) {
-    try {
-      if (this.pageRendering) {
-        warn("render engine task pending page: " + pageNumber);
-        return;
-      } else {
-        info("start rendering page : " + pageNumber);
-        this.pageRendering = true;
-        const _canvas = canvasRef.current;
-        const _page = pageNumber || 1;
-        const _scale = scale || 1;
-        const _rotation = rotation || 0;
-        const viewport = await this.page
-          ?.get(_page)
-          ?.getViewport({ scale: _scale, rotation: _rotation });
-        const context = _canvas?.getContext("2d");
-        context.clearRect(0, 0, _canvas?.width, _canvas?.height); // Clear the entire canvas
-
-        if (!(_canvas instanceof HTMLCanvasElement)) {
-          err("Stored object is NOT a valid <canvas> element!", _canvas);
-        }
-        _canvas.height = viewport.height || 1;
-        _canvas.width = viewport.width || 1;
-        const renderContext = {
-          canvasContext: context,
-          viewport: viewport,
-        };
-
-        const renderTask = this.page.get(_page).render(renderContext);
-        await renderTask.promise;
-        info("finish render page : " + _page);
-        this.drawPage(context, _canvas, _page);
-        this.pageRendering = false;
-      }
-    } catch (error) {
-      err(error);
-    }
-  }
-
-  drawPage(context, _canvas, _page) {
-    // Draw the page number at the bottom-center
-    const text = `Page : ${_page}`;
-    const textWidth = context.measureText(text).width;
-    const textHeight = 16; // Font size
-    const centerX = _canvas.width / 2;
-    const bottomY = _canvas.height - 30; // 20px from the bottom
-
-    // Draw the background (rounded white square)
-    const padding = 15;
-    context.fillStyle = "white";
-    context.beginPath();
-    context.moveTo(
-      centerX - textWidth / 2 - padding,
-      bottomY - textHeight / 2 - padding,
-    );
-    context.lineTo(
-      centerX + textWidth / 2 + padding,
-      bottomY - textHeight / 2 - padding,
-    );
-    context.lineTo(
-      centerX + textWidth / 2 + padding,
-      bottomY + textHeight / 2 + padding,
-    );
-    context.lineTo(
-      centerX - textWidth / 2 - padding,
-      bottomY + textHeight / 2 + padding,
-    );
-    context.closePath();
-    context.fill();
-
-    // Draw the text (black color)
-    context.fillStyle = "black";
-    context.font = "16px Arial"; // Font size
-    context.textAlign = "center";
-    context.fillText(text, centerX, bottomY + 10);
-  }
-  get totalPage() {
-    return this.pdf?._pdfInfo?.numPages;
-  }
-}
-
 //WARNING :
 /// global this for fix render canvas error
 //-------------------------------------------------------------------------------
-const PDF = new PDF_JS_DIST();
 
-function PdfViewEngine({ url, setUrl }) {
-  let DEFAULT_PAGE_TOTAL = localStorage.getItem("default_page_total");
+function PdfViewEngine({ state }) {
   //layout
   const [toggleSideBar, setToggleSideBar] = useState(() => {
-    const storedValue = localStorage.getItem("side_bar");
-    return storedValue === "true"; // Convert string to boolean
+    const storedValue = JSON.parse(localStorage.getItem("side_bar"));
+    return storedValue === true; // Convert string to boolean
   });
-  //  trigger
-  const [isPdfReady, setPdfReady] = useState(false);
-  const [triggerRerenderS2, setTriggerRerenderS2] = useState(false);
-  const [triggerRerenderS3, setTriggerRerenderS3] = useState(false);
-  const [triggerRerenderNextPage, setTriggerRerenderNextPage] = useState(false);
-  // Page behav
-  const [pageIndex, setPageIndex] = useState(null);
-  const [pageCurrentView, setPageView] = useState(null);
-  const [pageTotalCount, setPageTotalCount] = useState(DEFAULT_PAGE_TOTAL);
-  const [pageScale, setPageScale] = useState(2);
-  const [pageRotation, setPageRotation] = useState(0);
-  const [canvasStoreArrayRef, setCanvasStoreArrayRef] = useState([]);
-  const [maxPage, setMaxPage] = useState(null);
+  const [canvasRef, setCanvasRef] = useState([]);
+  const [pageTotal, setPageTotal] = useState(() => state.DEFAULT_TOTALPAGE());
+  const [trigerAllRender, setTriggerAllRender] = useState(() => false);
 
-  const S3_renderNextPage = async () => {
-    const _arr = canvasStoreArrayRef;
-    if (!isPdfReady) return info("S3_renderNextPage pending Processing pdf");
-    if (!PDF?.pdf)
-      return info("S3_renderNextPage checking is pdf already loaded ?");
-    if (!_arr) return info("S3_renderNextgpage fn required array");
-    const page = _arr?.length;
-    info("S3_renderNextPage : ", page);
-    await PDF.load_render_canvas(_arr[page - 1], page, pageScale, pageRotation);
-  };
-
-  const S3_renderAllPage = async () => {
-    const getLocalPageView = localStorage.getItem("default_page_view");
-    if (!isPdfReady) return info("S3_renderAllPage pending Processing pdf");
-    if (!PDF?.pdf)
-      return info("S3_renderAllPage checking is pdf already loaded ?");
-    const _arr = canvasStoreArrayRef;
-    info("S3_renderAllCanvas : ", _arr);
-    for (let i = 1; i <= _arr?.length; i++) {
-      await PDF.load_render_canvas(_arr[i - 1], i, pageScale, pageRotation);
-    }
-    info(getLocalPageView);
-    setPageIndex(() => getLocalPageView);
-  };
-
-  const S2_createAllCanvas = async (param_totalPage) => {
-    if (!isPdfReady) return info("S2_createAllCanvas pending  processing pdf");
-    if (!PDF?.pdf) return info("S2_createAllCanvas pdf is not yet loaded");
-    info(param_totalPage);
-    let _totalPage = Number(param_totalPage) < 6 ? 20 : param_totalPage;
-    info(_totalPage);
-    info("S2_createAllCanvas : " + _totalPage);
-    if (!_totalPage) return;
-    setCanvasStoreArrayRef(() => {
-      const newArr = [];
-      for (let i = 1; i <= _totalPage; i++) {
-        newArr.push(createRef());
+  const pushAllCanvas = (_number) => {
+    if (!state.pdf) return;
+    if (!state.isPdfReady) return;
+    setCanvasRef((prev) => {
+      const newCanvasRefs = [...prev]; // Copy the previous state
+      for (let i = 1; i <= _number; i++) {
+        newCanvasRefs.push(createRef()); // Add new refs to the array
       }
-      return newArr;
+      return newCanvasRefs; // Return the updated array
     });
-    setTriggerRerenderS3(() => !triggerRerenderS3);
+    info("push all default canvas");
+    setTriggerAllRender((prev) => !prev);
   };
 
-  const S2_createNextCanvas = () => {
-    if (canvasStoreArrayRef.length >= maxPage) return;
-
-    setCanvasStoreArrayRef((prev) => [...prev, createRef()]);
-    setTriggerRerenderNextPage(() => !triggerRerenderNextPage);
-    info("S2_createNextanvas created 1 canvas ");
+  const renderAllCanvas = async () => {
+    if (!state.pdf) return;
+    await Promise.all(
+      canvasRef?.map(async (ref, index) => {
+        await state.renderPage(ref, index + 1, 2);
+      }),
+    );
   };
-  const S1_loadPdf = async (_url) => {
-    if (!_url) return;
-    setPdfReady(() => false);
-    // async function converToBlob() {
-    //   const ADDRESS = "http://localhost:5173/";
-    //   const getResponse = await fetch(`${ADDRESS}${_url}`);
-    //   const blob = await getResponse.blob();
-    //   const pdfUrl = URL.createObjectURL(blob);
-    //   await PDF?.loadPdf(pdfUrl);
-    //   setPdfSize(() => blob.size);
-    // }
-    //
-    await PDF?.loadPdf(_url);
-    setMaxPage(() => PDF?.totalPage);
-    setPdfReady(() => true);
-    setTriggerRerenderS2(() => !triggerRerenderS2);
-  };
-  const jumpNextPage = () => {
-    const l = canvasStoreArrayRef.length;
-    const _target = Number(pageCurrentView);
-    if (l <= pageCurrentView) {
-      // protect if no more page
-      S2_createNextCanvas();
-    }
-    jumpToPage(_target + 1);
-  };
-  const jumpPrevPage = () => {
-    const _target = Number(pageCurrentView);
-    jumpToPage(_target - 1);
-  };
-
-  const jumpToPage = (target) => {
-    const _target = Number(target) || 1;
-    if (_target <= 0) return;
-    if (!_target) return info("@param 1 target not defined");
-    if (canvasStoreArrayRef.length <= _target) {
-      setPageTotalCount(() => _target + 1);
-      info("additional que");
-    } else {
-      canvasStoreArrayRef[_target - 1]?.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-  };
-  const lazySetPageView = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const eleIndex = entry.target.dataset.index;
-          localStorage.setItem("default_page_view", eleIndex);
-          setPageView(() => eleIndex);
-        }
-      });
-    },
-    {
-      root: document.getElementById("obs_root"),
-      rootMargin: "100px", // No margin around the root
-      threshold: 0.3,
-    },
-  );
-  const lazyLoadNextPageOBS = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          S2_createNextCanvas();
-          lazyLoadNextPageOBS.unobserve(entry.target);
-        }
-      });
-    },
-    {
-      root: document.getElementById("obs_root"),
-      rootMargin: "100px", // No margin around the root
-      threshold: 0.5,
-    },
-  );
-
-  const watchLazyLoadNextPage = () => {
-    if (!canvasStoreArrayRef) return;
-    if (canvasStoreArrayRef?.length <= 5) return;
-    const watchPage =
-      canvasStoreArrayRef[canvasStoreArrayRef.length - 2].current;
-    lazyLoadNextPageOBS?.observe(watchPage);
-  };
-  const watchLazyDefaultView = () => {
-    if (!canvasStoreArrayRef) return;
-    canvasStoreArrayRef?.map((ele, index) => {
-      lazySetPageView?.observe(ele.current);
-    });
-  };
-  useEffect(() => {
-    S1_loadPdf(url);
-    localStorage.setItem("url", url);
-    // for dev
-  }, [url]);
 
   useEffect(() => {
-    S2_createAllCanvas(pageTotalCount);
-  }, [triggerRerenderS2, pageTotalCount]);
+    state.loadPdf(state.url);
+  }, [state.url]); // load when url change
 
   useEffect(() => {
-    S3_renderAllPage();
-  }, [triggerRerenderS3, pageScale, pageRotation]);
+    pushAllCanvas(10);
+  }, [state.isPdfReady]); // Run effect only
 
   useEffect(() => {
-    S3_renderNextPage();
-  }, [triggerRerenderNextPage]);
+    renderAllCanvas();
+  }, [trigerAllRender]);
 
   useEffect(() => {
-    jumpToPage(pageIndex);
-  }, [pageIndex]);
-  useEffect(() => {
-    localStorage.setItem("default_page_total", canvasStoreArrayRef.length);
-    watchLazyLoadNextPage();
-    watchLazyDefaultView();
-  }, [canvasStoreArrayRef]);
-  useEffect(() => {
-    localStorage.setItem("side_bar", toggleSideBar);
+    localStorage.setItem("side_bar", JSON.stringify(toggleSideBar));
   }, [toggleSideBar]);
-  const dashboardState = {
-    url,
-    setUrl,
-    isPdfReady,
-    setPageRotation,
-    setPageScale,
-    setPageIndex,
-    setPageTotalCount,
-  };
-  const handleToggleSidebar = () => {
-    setToggleSideBar(() => !toggleSideBar);
-  };
+
   return (
     <motion.div
       key="pdfview/main"
@@ -425,10 +102,10 @@ function PdfViewEngine({ url, setUrl }) {
       className="w-[100%] h-[100%] min-h-screen  overflow-hidden flex justify-center"
     >
       <div className="w-full h-full 2xl:w-[50%] xl:w-[65%] lg:w-[80%] md:w-[100%]   bg-zinc-100  flex flex-col gap-[2px] items-center justify-center ">
-        <div className=" w-full h-[5%] shadow-md ">
-          <Dashboard dashboardState={dashboardState} />
+        <div className=" w-full h-[6%] shadow-md ">
+          <Dashboard state={state} />
         </div>
-        <div className="w-[100%]  flex h-[95%] relative  gap-[1px]">
+        <div className="w-[100%]  flex h-[94%]  relative  gap-[1px]">
           <motion.div
             initial={{ width: "0%" }}
             animate={{ width: toggleSideBar ? "25%" : "0%" }}
@@ -441,46 +118,24 @@ function PdfViewEngine({ url, setUrl }) {
           <div className=" h-full w-full flex relative">
             <div className="w-[100%]  bg-zinc-400/10 absolute top-0 z-50 h-[40px] flex items-center justify-start ">
               <ViewWeekRoundedIcon
-                onClick={() => handleToggleSidebar()}
+                onClick={() => setToggleSideBar((prev) => !prev)}
                 color="action"
                 fontSize="medium"
                 className=" ml-2 cursor-pointer"
               />
               <div className="w-full gap-3 flex justify-center items-center ">
-                <motion.span
-                  onClick={jumpPrevPage}
-                  className="h-full rotate-180 cursor-pointer flex items-center justify-center"
-                >
+                <motion.span className="h-full rotate-180 cursor-pointer flex items-center justify-center">
                   <KeyboardDoubleArrowRightRoundedIcon
                     fontSize="large"
                     color="action"
                   />
                 </motion.span>
-                <motion.span className=" cursor-pointer flex items-center justify-center">
-                  {pageCurrentView}
-                  {/* <input */}
-                  {/*   onChange={handleValueInput} */}
-                  {/*   value={pageIndex} */}
-                  {/*   pattern="[0-9]*" */}
-                  {/*   inputMode="numeric" */}
-                  {/*   type="number" */}
-                  {/*   className="w-[40px] focus:outline-0 " */}
-                  {/*   // onInput={(e) => */}
-                  {/*   //   (e.target.value = e.target.value.replace(/\D/g, "")) */}
-                  {/*   // } */}
-                  {/* /> */}
-                </motion.span>
+                <motion.span className=" cursor-pointer flex items-center justify-center"></motion.span>
                 <span className=" cursor-pointer flex items-center justify-center">
                   <p>/</p>
                 </span>
+                <span className=" cursor-pointer flex items-center justify-center"></span>
                 <span className=" cursor-pointer flex items-center justify-center">
-                  {maxPage}
-                </span>
-
-                <span
-                  onClick={jumpNextPage}
-                  className=" cursor-pointer flex items-center justify-center"
-                >
                   <KeyboardDoubleArrowRightRoundedIcon
                     fontSize="large"
                     color="action"
@@ -492,9 +147,9 @@ function PdfViewEngine({ url, setUrl }) {
               id="obs_root"
               className="gap-[2px]   h-[100%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
             >
-              {canvasStoreArrayRef?.map((ref, index) => (
+              {canvasRef?.map((ref, index) => (
                 <motion.canvas
-                  initial={{ opacity: 0, scale: 0.98 }}
+                  initial={{ opacity: 1, scale: 0.98 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   transition={{
                     duration: 0.1,
@@ -503,9 +158,9 @@ function PdfViewEngine({ url, setUrl }) {
                     damping: 30,
                   }}
                   // viewport={{ root: scrollRef }}
-                  data-index={index + 1}
-                  id={`canvas-${index + 1}`}
-                  key={index + 1}
+                  data-index={index}
+                  id={`canvas-${index}`}
+                  key={index}
                   ref={ref}
                   className={clsx(" w-[100%]   shadow-md ")}
                 ></motion.canvas>
@@ -518,37 +173,30 @@ function PdfViewEngine({ url, setUrl }) {
   );
 }
 
-const Dashboard = ({ dashboardState }) => {
+const Dashboard = ({ state }) => {
   const navigate = useNavigate();
   return (
-    <div className="w-full h-full ">
-      <Button onClick={() => navigate("/")}>Back</Button>
-      <Button onClick={() => dashboardState.setPageTotalCount(20)}>
-        set url
-      </Button>
-      <Button onClick={() => info(PDF.page.get(1))}>Page info</Button>
-      <Button onClick={() => navigate("/pdfview/")}>list page</Button>
-      <div className="w-full"></div>
-      <LinearProgress
-        variant="indeterminate"
-        sx={{
-          display: dashboardState.isPdfReady ? "none" : "block",
-        }}
-      />
+    <div className="w-full h-full flex flex-col justify-center  ">
+      <div className="w-full ">
+        <Button onClick={() => navigate("/")}>Back</Button>
+        <Button onClick={() => navigate("/pdfview/")}>list page</Button>
+      </div>
+      <div className="w-full ">
+        <LinearProgress
+          variant="indeterminate"
+          sx={{
+            display: state.isPdfReady ? "none" : "block",
+          }}
+        />
+      </div>
     </div>
   );
 };
 
-const BrowserList = ({ setUrl }) => {
+const BrowserList = ({ state }) => {
   const navigate = useNavigate();
-  const _setUrl = (url) => {
-    if (url !== localStorage.getItem("url")) {
-      info(url);
-      info(localStorage.getItem("url"));
-      localStorage.setItem("default_page_view", 1);
-      localStorage.setItem("default_page_total", 6);
-      setUrl(() => url);
-    }
+  const changeUrl = (url) => {
+    state.setUrl(url);
     navigate("/pdfview/engine");
   };
   const url1 = "/Eloquent_JavaScript.pdf";
@@ -563,46 +211,144 @@ const BrowserList = ({ setUrl }) => {
     >
       <div></div>
       <div className="flex justify-center">
-        <Button onClick={() => _setUrl(url1)}>jsvascript book</Button>
-        <Button onClick={() => _setUrl(url2)}>bash book</Button>
+        <Button onClick={() => changeUrl(url1)}>jsvascript book</Button>
+        <Button onClick={() => changeUrl(url2)}>bash book</Button>
       </div>
     </motion.div>
   );
 };
-const SidePdfViewEngine = () => {
-  const canvasRef = useRef([]);
 
-  const addCanvas = () => {
-    canvasRef.current.push(createRef());
-  };
+const SidePdfViewEngine = () => {
   useEffect(() => {});
   return (
     <div className="w-full h-full  flex flex-col items-center ">
-      <div>
-        <button onClick={addCanvas}>test me!</button>
-      </div>
-      <div>
-        {canvasRef.current.map((ele, index) => (
-          <canvas ref={ele} key={index}></canvas>
-        ))}
-      </div>
+      <div></div>
+      <div></div>
     </div>
   );
 };
+
 export default function PdfPage() {
-  var DEFAULT_URL = localStorage.getItem("url");
-  if (!DEFAULT_URL) {
-    DEFAULT_URL = "/Eloquent_JavaScript.pdf";
-  }
-  const [url, setUrl] = useState("/Eloquent_JavaScript.pdf");
+  const DEFAULT_TOTALPAGE = () => localStorage.getItem("total_page") ?? 6;
+  const DEFAULT_URL = () =>
+    localStorage.getItem("pdf_url") ?? "/Eloquent_JavaScript.pdf";
+  const renderTask = new Map(); // prevent multiple render
+  const [url, setUrl] = useState(() => DEFAULT_URL());
+  const [pdf, setPdf] = useState(null);
+  const [isPdfReady, setPdfReady] = useState(null);
+  const renderPage = async (
+    _canvas,
+    _pageNumber,
+    _pageScale,
+    _pageRotation,
+  ) => {
+    if (!pdf) return;
+    if (!_canvas) return;
+    const canvas = _canvas.current;
+    const page = _pageNumber ?? 1;
+    const scale = _pageScale ?? 1;
+    const rotation = _pageRotation ?? 0;
+    const pdfPage = await pdf.getPage(page);
+    const viewport = pdfPage?.getViewport({ scale: scale, rotation: rotation });
+    const context = canvas?.getContext("2d");
+
+    canvas.height = viewport.height || 1;
+    canvas.width = viewport.width || 1;
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport,
+    };
+    if (renderTask.get(page)) {
+      renderTask.get(page).cancel();
+    }
+    renderTask.set(page, pdfPage?.render(renderContext));
+    await renderTask.get(page).promise.catch((error) => {
+      if (error.name === "RenderingCancelledException") {
+        info(" Pending RenderTask page : ", page);
+      } else {
+        err("Error rendering PDF page:", error);
+      }
+    });
+    drawPage(context, canvas, page);
+    info("Finish render page : " + page);
+  };
+
+  const loadPdf = async (_url) => {
+    try {
+      if (!_url) return;
+      setPdfReady(() => false);
+      if (_url === localStorage.getItem("pdf_url") && pdf) {
+        setPdfReady(() => true);
+        return info("Loaded Same URL : ", _url);
+      }
+      const _data = pdfjsLib?.getDocument(_url);
+      const _pdf = await _data?.promise;
+      if (!_pdf) return;
+      setPdf(() => _pdf);
+      setPdfReady(() => true);
+      info(`fetch done! .....${_url} `);
+      info(_pdf);
+      localStorage.setItem("pdf_url", _url);
+    } catch (error) {
+      err(" loadpdf : ", _url, error);
+    }
+  };
+
+  const state = {
+    loadPdf,
+    renderPage,
+    DEFAULT_TOTALPAGE,
+    DEFAULT_URL,
+    url,
+    setUrl,
+    pdf,
+    setPdf,
+    isPdfReady,
+    setPdfReady,
+  };
   return (
     <Routes>
+      <Route index element={<BrowserList state={state} />}></Route>
+      <Route path="engine" element={<PdfViewEngine state={state} />}></Route>
       <Route path="*" element={<NoteFound docName="PDF pageview !!" />}></Route>
-      <Route index element={<BrowserList setUrl={setUrl} />}></Route>
-      <Route
-        path="engine"
-        element={<PdfViewEngine url={url} setUrl={setUrl} />}
-      ></Route>
     </Routes>
   );
+}
+
+function drawPage(context, _canvas, _page) {
+  // Draw the page number at the bottom-center
+  const text = `Page : ${_page}`;
+  const textWidth = context.measureText(text).width;
+  const textHeight = 16; // Font size
+  const centerX = _canvas.width / 2;
+  const bottomY = _canvas.height - 30; // 20px from the bottom
+
+  // Draw the background (rounded white square)
+  const padding = 15;
+  context.fillStyle = "white";
+  context.beginPath();
+  context.moveTo(
+    centerX - textWidth / 2 - padding,
+    bottomY - textHeight / 2 - padding,
+  );
+  context.lineTo(
+    centerX + textWidth / 2 + padding,
+    bottomY - textHeight / 2 - padding,
+  );
+  context.lineTo(
+    centerX + textWidth / 2 + padding,
+    bottomY + textHeight / 2 + padding,
+  );
+  context.lineTo(
+    centerX - textWidth / 2 - padding,
+    bottomY + textHeight / 2 + padding,
+  );
+  context.closePath();
+  context.fill();
+
+  // Draw the text (black color)
+  context.fillStyle = "black";
+  context.font = "16px Arial"; // Font size
+  context.textAlign = "center";
+  context.fillText(text, centerX, bottomY + 10);
 }
