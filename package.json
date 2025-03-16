@@ -15,6 +15,7 @@
     "@mui/icons-material": "^6.4.5",
     "@mui/material": "^6.4.5",
     "@tailwindcss/vite": "^4.0.6",
+    "@tanstack/react-virtual": "^3.13.4",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "eslint-import-resolver-alias": "^1.1.2",
