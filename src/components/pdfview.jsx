@@ -41,20 +41,90 @@ function PdfViewEngine({ state }) {
   const [pageCurrentView, setPageCurrentView] = useState(() =>
     state?.DEFAULT_PAGEVIEW(),
   );
-  const [triggerDefaultRender, setTriggerDefaultRender] = useState(false);
-  // @hold array of ref
+  const [pdf, setPdf] = useState(null);
+  const [isPdfReady, setPdfReady] = useState(null);
   const [canvasRef, setCanvasRef] = useState([]);
+  const [triggerGlobalRender, setTriggerGlobalRender] = useState(false);
+  const renderTask = new Map();
+  const renderPage = async (
+    _canvas,
+    _pageNumber,
+    _pageScale,
+    _pageRotation,
+  ) => {
+    if (!pdf) return;
+    if (!_canvas) return;
+    const canvas = _canvas.current;
+    const page = _pageNumber ?? 1;
+    const scale = _pageScale ?? 1;
+    const rotation = _pageRotation ?? 0;
+    const pdfPage = await pdf.getPage(page);
+    const viewport = pdfPage?.getViewport({ scale: scale, rotation: rotation });
+    const context = canvas?.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.height = viewport.height || 1;
+    canvas.width = viewport.width || 1;
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport,
+    };
+    // Cancel any previous render task for the same page
+    if (renderTask.has(page)) {
+      const task = renderTask.get(page);
+      task.cancel(); // Cancel the previous render task
+    }
+
+    // Start the render task
+    const renderTaskObj = pdfPage.render(renderContext);
+
+    // Store the renderTask object for cancellation later
+    renderTask.set(page, renderTaskObj);
+
+    try {
+      // Wait for the render task to finish
+      await renderTaskObj.promise;
+    } catch (error) {
+      if (error.name === "RenderingCancelledException") {
+        console.info(`Rendering for page ${page} was cancelled`);
+      } else {
+        console.error("Error rendering page:", error);
+      }
+    }
+    drawPage(context, canvas, page);
+    info("Finish render page : " + page);
+  };
+
+  const loadPdf = async (_url) => {
+    try {
+      if (!_url) return;
+      setPdfReady(() => false);
+      if (_url === localStorage.getItem("pdf_url") && pdf) {
+        setPdfReady(() => true);
+        return info("Loaded Same URL : ", _url);
+      }
+      const _data = pdfjsLib?.getDocument(_url);
+      const _pdf = await _data?.promise;
+      if (!_pdf) return;
+      setPdf(() => _pdf);
+      setPdfReady(() => true);
+      info(`fetch done! .....${_url} `);
+      info(_pdf);
+      localStorage.setItem("pdf_url", _url);
+    } catch (error) {
+      err(" loadpdf : ", _url, error);
+    }
+  };
 
   const createNextCanvas = () => {
-    if (!state.pdf) return;
-    if (!state.isPdfReady) return;
+    if (!pdf) return;
+    if (!isPdfReady) return;
     setCanvasRef((prev) => [...prev, createRef()]);
   };
 
   const createAllCanvas = (_number) => {
-    if (!state.pdf) return;
-    if (!state.isPdfReady) return;
-    setMaxPage(() => state?.pdf._pdfInfo.numPages);
+    if (!pdf) return;
+    if (!isPdfReady) return;
+    setMaxPage(() => pdf._pdfInfo.numPages);
     setCanvasRef((prev) => {
       const newCanvasRefs = [...prev]; // Copy the previous state
       for (let i = 1; i <= _number; i++) {
@@ -63,21 +133,11 @@ function PdfViewEngine({ state }) {
       return newCanvasRefs; // Return the updated array
     });
     info("created all default canvas");
-    setTriggerDefaultRender((prev) => !prev);
+    setTriggerGlobalRender((prev) => !prev);
   };
   const renderCurrentCanvas = async (page) => {
-    if (!state.pdf) return;
-    await state.renderPage(canvasRef[page - 1], page, pageScale, pageRotation);
-  };
-
-  const renderAllCanvas = async () => {
-    if (!state.pdf) return;
-    await Promise.all(
-      canvasRef?.map(async (ref, index) => {
-        await state.renderPage(ref, index + 1, pageScale, pageRotation);
-      }),
-    );
-    jumpToPage(pageCurrentView);
+    if (!pdf) return;
+    await renderPage(canvasRef[page - 1], page, pageScale, pageRotation);
   };
   const jumpNextPage = () => {
     const pi = Number(pageCurrentView);
@@ -111,7 +171,9 @@ function PdfViewEngine({ state }) {
           const halfLen = canvasRef.length / 2;
           const pageNumber = Number(eleIndex) + 1;
           if (!canvasRef[pageNumber]) return;
-          renderCurrentCanvas(pageNumber);
+          if (!renderTask.has(pageNumber)) {
+            renderCurrentCanvas(pageNumber);
+          }
           setPageCurrentView(() => pageNumber);
           setLS("page_current_view", pageNumber);
         }
@@ -159,28 +221,25 @@ function PdfViewEngine({ state }) {
     setPageTotal(() => canvasRef.length);
   }, [canvasRef]);
   useEffect(() => {
-    state.loadPdf(state.url);
+    loadPdf(state.url);
   }, [state.url]); // load when url change
 
   useEffect(() => {
     createAllCanvas(state.DEFAULT_TOTALPAGE());
-  }, [state.isPdfReady]); // Run effect only
-  useEffect(() => {
-    renderAllCanvas();
-  }, [triggerDefaultRender]);
+  }, [isPdfReady]); // Run effect only
+
   useEffect(() => {
     localStorage.setItem("side_bar", JSON.stringify(toggleSideBar));
   }, [toggleSideBar]);
-  useEffect(() => {
-    info(pageTotal);
-  }, [pageTotal]);
+
   useEffect(() => {
     jumpToPage(pageIndex);
   }, [pageIndex]);
   useEffect(() => {}, [pageCurrentView]);
+
   const pdfViewEngineState = {
     setPageTotal,
-    isPdfReady: state.isPdfReady,
+    isPdfReady,
   };
   return (
     <motion.div
@@ -328,7 +387,6 @@ const SidePdfViewEngine = () => {
 };
 
 export default function PdfPage() {
-  const renderTask = new Map(); // prevent multiple render
   const DEFAULT_PAGEVIEW = () => getLS("page_current_view") ?? 1;
   const DEFAULT_TOTALPAGE = () => {
     const n = getLS("total_page") ?? 6;
@@ -340,79 +398,13 @@ export default function PdfPage() {
   const DEFAULT_URL = () => getLS("pdf_url") ?? "/Eloquent_JavaScript.pdf";
 
   const [url, setUrl] = useState(() => DEFAULT_URL());
-  const [pdf, setPdf] = useState(null);
-  const [isPdfReady, setPdfReady] = useState(null);
-  const renderPage = async (
-    _canvas,
-    _pageNumber,
-    _pageScale,
-    _pageRotation,
-  ) => {
-    if (!pdf) return;
-    if (!_canvas) return;
-    const canvas = _canvas.current;
-    const page = _pageNumber ?? 1;
-    const scale = _pageScale ?? 1;
-    const rotation = _pageRotation ?? 0;
-    const pdfPage = await pdf.getPage(page);
-    const viewport = pdfPage?.getViewport({ scale: scale, rotation: rotation });
-    const context = canvas?.getContext("2d");
-    canvas.height = viewport.height || 1;
-    canvas.width = viewport.width || 1;
-    const renderContext = {
-      canvasContext: context,
-      viewport: viewport,
-    };
-    if (renderTask.get(page)) {
-      renderTask.get(page).cancel();
-    }
-
-    renderTask.set(page, pdfPage?.render(renderContext));
-
-    await renderTask.get(page).promise.catch((error) => {
-      if (error.name === "RenderingCancelledException") {
-        info(" Pending RenderTask page : ", page);
-      } else {
-        err("Error rendering PDF page:", error);
-      }
-    });
-    drawPage(context, canvas, page);
-    info("Finish render page : " + page);
-  };
-
-  const loadPdf = async (_url) => {
-    try {
-      if (!_url) return;
-      setPdfReady(() => false);
-      if (_url === localStorage.getItem("pdf_url") && pdf) {
-        setPdfReady(() => true);
-        return info("Loaded Same URL : ", _url);
-      }
-      const _data = pdfjsLib?.getDocument(_url);
-      const _pdf = await _data?.promise;
-      if (!_pdf) return;
-      setPdf(() => _pdf);
-      setPdfReady(() => true);
-      info(`fetch done! .....${_url} `);
-      info(_pdf);
-      localStorage.setItem("pdf_url", _url);
-    } catch (error) {
-      err(" loadpdf : ", _url, error);
-    }
-  };
 
   const pdfPageState = {
-    loadPdf,
-    renderPage,
     DEFAULT_PAGEVIEW,
     DEFAULT_TOTALPAGE,
     DEFAULT_URL,
     url,
     setUrl,
-    pdf,
-    setPdf,
-    isPdfReady,
-    setPdfReady,
   };
   return (
     <Routes>
