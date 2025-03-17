@@ -149,18 +149,29 @@ function PdfViewEngine({ state }) {
     });
   };
 
-  const renderAllPage = async () => {
+  const createAllCanvas = (n) => {
     if (!pdf) return;
-    const newMap = new Map(canvasMap); // Copy existing refs
-    for (let i = 1; i <= 10; i++) {
+    const newMap = new Map(); //
+    for (let i = 1; i <= n; i++) {
       if (!newMap.has(i)) {
         newMap.set(i, createRef()); // Only create ref if it doesn't exist
       }
     }
-    setCanvasMap(newMap); // Update state synchronously
-
+    setCanvasMap(() => newMap); // Update state synchronously
+    setTriggerRenderALl((prev) => !prev);
+  };
+  const createPageCanvas = (page) => {
+    if (!pdf) return;
+    setCanvasMap((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(page, createRef());
+      return newMap;
+    });
+  };
+  const renderAllPage = async () => {
+    if (!pdf) return;
     await Promise.all(
-      [...newMap.entries()].map(async ([page, ref]) => {
+      [...canvasMap.entries()].map(async ([page, ref]) => {
         await renderPage(pdf, ref, page, pageScale, pageRotation);
       }),
     );
@@ -168,12 +179,13 @@ function PdfViewEngine({ state }) {
   useEffect(() => {
     loadPdf(state.url);
   }, [state.url]); // load when url change
-
+  useEffect(() => {});
+  useEffect(() => {
+    createAllCanvas(pageTotal);
+  }, [pdf, pageTotal, pageScale, pageRotation]);
   useEffect(() => {
     renderAllPage();
-  }, [pdf]);
-
-  useEffect(() => {}, [pageTotal, pageScale, pageRotation]);
+  }, [triggerRenderAll]);
   useEffect(() => {
     localStorage.setItem("side_bar", JSON.stringify(toggleSideBar));
   }, [toggleSideBar]);
@@ -181,6 +193,7 @@ function PdfViewEngine({ state }) {
   const pdfViewEngineState = {
     setPageTotal,
     isPdfReady,
+    createPageCanvas,
   };
   return (
     <motion.div
@@ -244,24 +257,26 @@ function PdfViewEngine({ state }) {
               id="obs_root"
               className="gap-[2px]   h-[100%] w-[100%]  flex flex-col  no-scrollbar shadow-sm items-center    scroll-smooth  overflow-auto "
             >
-              {[...canvasMap.entries()].map(([page, ref]) => (
-                <motion.canvas
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  transition={{
-                    duration: 0.1,
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 30,
-                  }}
-                  // viewport={{ root: scrollRef }}
-                  data-index={page}
-                  ref={ref}
-                  id={`canvas-${page}`}
-                  key={page}
-                  className={" w-[100%]  shadow-md "}
-                />
-              ))}
+              {[...canvasMap.entries()]
+                .sort(([a], [b]) => a - b)
+                .map(([page, ref]) => (
+                  <motion.canvas
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{
+                      duration: 0.1,
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 30,
+                    }}
+                    // viewport={{ root: scrollRef }}
+                    data-index={page}
+                    ref={ref}
+                    id={`canvas-${page}`}
+                    key={page}
+                    className={" w-[100%]  shadow-md "}
+                  />
+                ))}
             </div>
           </div>
         </div>
@@ -279,6 +294,7 @@ const Dashboard = ({ state }) => {
         <Button onClick={() => state.setPageTotal(() => 20)}>
           set 20 canvas
         </Button>
+        <Button onClick={() => state.createPageCanvas(90)}>add 1 canvas</Button>
         <Button onClick={() => navigate("/pdfview/")}>list page</Button>
       </div>
       <div className="w-full ">
