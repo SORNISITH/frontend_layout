@@ -149,10 +149,10 @@ function PdfViewEngine({ state }) {
     });
   };
 
-  const renderAllPage = async (n) => {
+  const renderAllPage = async () => {
     if (!pdf) return;
     const newMap = new Map(canvasMap); // Copy existing refs
-    for (let i = 1; i <= n; i++) {
+    for (let i = 1; i <= 10; i++) {
       if (!newMap.has(i)) {
         newMap.set(i, createRef()); // Only create ref if it doesn't exist
       }
@@ -170,7 +170,7 @@ function PdfViewEngine({ state }) {
   }, [state.url]); // load when url change
 
   useEffect(() => {
-    renderAllPage(6);
+    renderAllPage();
   }, [pdf]);
 
   useEffect(() => {}, [pageTotal, pageScale, pageRotation]);
