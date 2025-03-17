@@ -46,7 +46,7 @@ function PdfViewEngine({ state }) {
   const [pageIndex, setPageIndex] = useState(null);
   const [pageRotation, setPageRotation] = useState(0);
   const [pageScale, setPageScale] = useState(2);
-  const [pageMax, setMaxPage] = useState(null);
+  const [pageMax, setPageMax] = useState(null);
   const [triggerRenderAll, setTriggerRenderALl] = useState(false);
   const [pageCurrentView, setPageCurrentView] = useState(() =>
     DEFAULT_PAGEVIEW(),
@@ -56,6 +56,9 @@ function PdfViewEngine({ state }) {
   const [canvasRef, setCanvasRef] = useState([]);
   const [canvasMap, setCanvasMap] = useState(new Map());
   const containerRef = useRef(null);
+  const pagesToShow = 5;
+  const startIndex = Math.max(0, pageCurrentView - Math.floor(pagesToShow / 2));
+  const endIndex = startIndex + pagesToShow;
   const loadPdf = async (_url) => {
     try {
       if (!_url) return;
@@ -104,48 +107,30 @@ function PdfViewEngine({ state }) {
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const eleIndex = entry.target.dataset.index;
+          const eleIndex = Number(entry.target.dataset.index);
           if (eleIndex == pageMax) return;
-          const pageNumber = Number(eleIndex) + 1;
-          if (!canvasRef[pageNumber]) return;
-          setPageCurrentView(() => pageNumber);
-          setLS("page_current_view", pageNumber);
+          // Determine scroll direction
+          setPageIndex(() => eleIndex - 1);
+          setPageIndex(() => eleIndex);
+          setPageIndex(() => eleIndex + 1);
+          setPageCurrentView(() => eleIndex);
+          setLS("page_current_view", eleIndex);
         }
       });
     },
     {
       root: document.getElementById("obs_root"),
-      rootMargin: "100px", // No margin around the root
+      rootMargin: "0px", // No margin around the root
       threshold: 0.4,
     },
   );
-  const lazyNextPage = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          lazyNextPage?.unobserve(entry.target);
-          setLS("total_page", canvasRef.length);
-        }
-      });
-    },
-    {
-      root: document.getElementById("obs_root"),
-      rootMargin: "100px", // No margin around the root
-      threshold: 0.3,
-    },
-  );
 
-  const watchLazy = (_arrRef) => {
-    if (!_arrRef) return;
-    if (_arrRef?.length <= 5) return;
-    const watchPage = _arrRef[_arrRef.length - 2].current;
-    const watchPage3 = _arrRef[_arrRef.length - 3].current;
-    const watchPage2 = _arrRef[_arrRef.length - 1].current;
-    lazyNextPage?.observe(watchPage);
-    lazyNextPage?.observe(watchPage2);
-    lazyNextPage?.observe(watchPage3);
-    canvasRef?.map((ref, index) => {
-      lazyViewPage?.observe(ref.current);
+  const watchLazy = () => {
+    if (!canvasMap || !pdf) return;
+    [...canvasMap.entries()].map(([index, ref]) => {
+      if (ref.current) {
+        lazyViewPage.observe(ref.current);
+      }
     });
   };
 
@@ -161,31 +146,45 @@ function PdfViewEngine({ state }) {
     setTriggerRenderALl((prev) => !prev);
   };
   const createPageCanvas = (page) => {
-    if (!pdf) return;
+    if (!pdf || !page || page <= 0) return;
     setCanvasMap((prev) => {
       const newMap = new Map(prev);
       newMap.set(page, createRef());
       return newMap;
     });
   };
-  const renderAllPage = async () => {
+  const renderEngineAll = async () => {
     if (!pdf) return;
     await Promise.all(
       [...canvasMap.entries()].map(async ([page, ref]) => {
-        await renderPage(pdf, ref, page, pageScale, pageRotation);
+        if (!state.renderStatus.has(page)) {
+          await renderPage(pdf, ref, page, pageScale, pageRotation);
+          state.setRenderStatus((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(page, true);
+            return newMap;
+          });
+        }
       }),
     );
   };
   useEffect(() => {
+    state.setRenderStatus(() => new Map()); // Clear when component mounts (on refresh)
+  }, []);
+  useEffect(() => {
     loadPdf(state.url);
   }, [state.url]); // load when url change
-  useEffect(() => {});
+  useEffect(() => {
+    setPageMax(() => pdf?._pdfInfo?.numPages);
+    createPageCanvas(pageIndex);
+  }, [pageIndex]);
   useEffect(() => {
     createAllCanvas(pageTotal);
   }, [pdf, pageTotal, pageScale, pageRotation]);
   useEffect(() => {
-    renderAllPage();
-  }, [triggerRenderAll]);
+    renderEngineAll();
+    watchLazy();
+  }, [triggerRenderAll, canvasMap]);
   useEffect(() => {
     localStorage.setItem("side_bar", JSON.stringify(toggleSideBar));
   }, [toggleSideBar]);
@@ -194,6 +193,7 @@ function PdfViewEngine({ state }) {
     setPageTotal,
     isPdfReady,
     createPageCanvas,
+    setPageIndex,
   };
   return (
     <motion.div
@@ -259,10 +259,11 @@ function PdfViewEngine({ state }) {
             >
               {[...canvasMap.entries()]
                 .sort(([a], [b]) => a - b)
+                .slice(startIndex, endIndex) // Slice the array dynamically
                 .map(([page, ref]) => (
                   <motion.canvas
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
                     transition={{
                       duration: 0.1,
                       type: "spring",
@@ -294,7 +295,9 @@ const Dashboard = ({ state }) => {
         <Button onClick={() => state.setPageTotal(() => 20)}>
           set 20 canvas
         </Button>
-        <Button onClick={() => state.createPageCanvas(90)}>add 1 canvas</Button>
+        <Button onClick={() => state.setPageIndex(() => 99)}>
+          add 1 canvas
+        </Button>
         <Button onClick={() => navigate("/pdfview/")}>list page</Button>
       </div>
       <div className="w-full ">
@@ -312,6 +315,7 @@ const Dashboard = ({ state }) => {
 const BrowserList = ({ state }) => {
   const navigate = useNavigate();
   const changeUrl = (url) => {
+    state.setRenderStatus(() => new Map());
     state.setUrl(url);
     navigate("/pdfview/engine");
   };
@@ -346,9 +350,13 @@ const SidePdfViewEngine = () => {
 
 export default function PdfPage() {
   const [url, setUrl] = useState(() => DEFAULT_URL());
+  const [renderStatus, setRenderStatus] = useState(new Map());
+
   const pdfPageState = {
     url,
     setUrl,
+    renderStatus,
+    setRenderStatus,
   };
   return (
     <Routes>
