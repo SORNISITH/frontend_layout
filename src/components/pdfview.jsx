@@ -108,11 +108,18 @@ function PdfViewEngine({ state }) {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           const eleIndex = Number(entry.target.dataset.index);
+          setCanvasMap((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(eleIndex - 1);
+            newMap.set(eleIndex - 2);
+            newMap.set(eleIndex + 1);
+            newMap.set(eleIndex + 2);
+            return newMap;
+          });
           if (eleIndex == pageMax) return;
-          // Determine scroll direction
-          setPageIndex(() => eleIndex - 1);
-          setPageIndex(() => eleIndex);
-          setPageIndex(() => eleIndex + 1);
+          renderEnginePage(eleIndex - 1);
+          renderEnginePage(eleIndex);
+          renderEnginePage(eleIndex + 1);
           setPageCurrentView(() => eleIndex);
           setLS("page_current_view", eleIndex);
         }
@@ -153,6 +160,12 @@ function PdfViewEngine({ state }) {
       return newMap;
     });
   };
+  const renderEnginePage = async (page) => {
+    info(canvasMap.get(page));
+    if (!pdf) return;
+    //  await renderPage(pdf, canvasMap.get(page), page, pageScale, pageRotation);
+  };
+
   const renderEngineAll = async () => {
     if (!pdf) return;
     await Promise.all(
