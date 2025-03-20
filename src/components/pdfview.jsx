@@ -43,11 +43,10 @@ function PdfViewEngine({ state }) {
   });
   // @pdf behavior
   const [pageTotal, setPageTotal] = useState(() => DEFAULT_TOTALPAGE());
-  const [pageIndex, setPageIndex] = useState(null);
+  const [pageIndex, setPageIndex] = useState(5);
   const [pageRotation, setPageRotation] = useState(0);
   const [pageScale, setPageScale] = useState(2);
-  const [pageMax, setMaxPage] = useState(null);
-  const [triggerRenderAll, setTriggerRenderALl] = useState(false);
+  const [pageMax, setPageMax] = useState(null);
   const [pageCurrentView, setPageCurrentView] = useState(() =>
     DEFAULT_PAGEVIEW(),
   );
@@ -76,124 +75,92 @@ function PdfViewEngine({ state }) {
       err(" loadpdf : ", _url, error);
     }
   };
-
-  const jumpNextPage = () => {
-    const pi = Number(pageCurrentView);
-    setPageIndex(() => pi + 1);
-  };
-  const jumpPrevPage = () => {
-    const pi = Number(pageCurrentView);
-    setPageIndex(() => pi - 1);
-  };
-
-  const jumpToPage = (target) => {
-    const _target = Number(target) || 1;
-    if (!_target) return info("@param 1 target not defined");
-    if (_target <= 0 || _target >= pageMax || !_target) return;
-    if (_target)
-      if (pageTotal <= _target) {
-        info("page view bigger");
-      } else {
-        canvasRef[_target - 1]?.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-  };
+  const renderTask = new Map();
   const lazyViewPage = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const eleIndex = entry.target.dataset.index;
-          if (eleIndex == pageMax) return;
-          const pageNumber = Number(eleIndex) + 1;
-          if (!canvasRef[pageNumber]) return;
-          setPageCurrentView(() => pageNumber);
-          setLS("page_current_view", pageNumber);
+          const eleIndex = Number(entry.target.dataset.index);
+          if (eleIndex > pageMax || eleIndex < 1) return;
+          renderEnginePage(eleIndex);
+          setPageCurrentView(() => eleIndex);
+          setLS("page_current_view", eleIndex);
         }
       });
     },
     {
       root: document.getElementById("obs_root"),
-      rootMargin: "100px", // No margin around the root
-      threshold: 0.4,
-    },
-  );
-  const lazyNextPage = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          lazyNextPage?.unobserve(entry.target);
-          setLS("total_page", canvasRef.length);
-        }
-      });
-    },
-    {
-      root: document.getElementById("obs_root"),
-      rootMargin: "100px", // No margin around the root
-      threshold: 0.3,
+      rootMargin: "0px", // No margin around the root
+      threshold: 0.1,
     },
   );
 
-  const watchLazy = (_arrRef) => {
-    if (!_arrRef) return;
-    if (_arrRef?.length <= 5) return;
-    const watchPage = _arrRef[_arrRef.length - 2].current;
-    const watchPage3 = _arrRef[_arrRef.length - 3].current;
-    const watchPage2 = _arrRef[_arrRef.length - 1].current;
-    lazyNextPage?.observe(watchPage);
-    lazyNextPage?.observe(watchPage2);
-    lazyNextPage?.observe(watchPage3);
-    canvasRef?.map((ref, index) => {
-      lazyViewPage?.observe(ref.current);
+  const watchLazy = () => {
+    if (!canvasMap || !pdf) return;
+    [...canvasMap.entries()].map(([index, ref]) => {
+      if (ref.current) {
+        lazyViewPage.observe(ref.current);
+      }
     });
   };
 
-  const createAllCanvas = (n) => {
-    if (!pdf) return;
+  const createDefaultCanvas = (number) => {
+    let defaultPage = 2; // up and down increase page
+    let n = Number(number); // middle page
+    if (n <= defaultPage) n = defaultPage + 1;
     const newMap = new Map(); //
-    for (let i = 1; i <= n; i++) {
-      if (!newMap.has(i)) {
-        newMap.set(i, createRef()); // Only create ref if it doesn't exist
+    if (!pdf || n == 0 || !n) return;
+    if (n > defaultPage) {
+      for (let i = defaultPage; i >= 1; i--) {
+        newMap.set(n - i, createRef()); // Only create ref if it doesn't exist
       }
     }
-    setCanvasMap(() => newMap); // Update state synchronously
-    setTriggerRenderALl((prev) => !prev);
+    newMap.set(n, createRef()); //
+    if (n <= pageMax - defaultPage)
+      for (let i = 1; i <= defaultPage; i++) {
+        newMap.set(n + i, createRef()); //
+      }
+    setCanvasMap(() => newMap); // y
   };
+
   const createPageCanvas = (page) => {
-    if (!pdf) return;
+    if (!pdf || !page || page <= 0) return;
     setCanvasMap((prev) => {
       const newMap = new Map(prev);
       newMap.set(page, createRef());
       return newMap;
     });
   };
-  const renderAllPage = async () => {
-    if (!pdf) return;
-    await Promise.all(
-      [...canvasMap.entries()].map(async ([page, ref]) => {
-        await renderPage(pdf, ref, page, pageScale, pageRotation);
-      }),
-    );
+  const renderEnginePage = async (page) => {
+    if (!pdf || page <= 0 || page > pageMax) return;
+    if (!renderTask.has(page)) {
+      await renderPage(pdf, canvasMap.get(page), page, pageScale, pageRotation);
+      renderTask.set(page, true);
+    }
   };
+
   useEffect(() => {
     loadPdf(state.url);
+    renderTask.clear();
   }, [state.url]); // load when url change
-  useEffect(() => {});
   useEffect(() => {
-    createAllCanvas(pageTotal);
-  }, [pdf, pageTotal, pageScale, pageRotation]);
+    setPageMax(() => pdf?._pdfInfo?.numPages);
+    createDefaultCanvas(pageIndex);
+  }, [pageIndex, pdf, pageTotal, pageScale, pageRotation]);
   useEffect(() => {
-    renderAllPage();
-  }, [triggerRenderAll]);
+    createDefaultCanvas(pageCurrentView);
+  }, [pageCurrentView]);
+  useEffect(() => {
+    watchLazy();
+  }, [canvasMap]);
   useEffect(() => {
     localStorage.setItem("side_bar", JSON.stringify(toggleSideBar));
   }, [toggleSideBar]);
-
   const pdfViewEngineState = {
     setPageTotal,
     isPdfReady,
     createPageCanvas,
+    setPageIndex,
   };
   return (
     <motion.div
@@ -230,7 +197,6 @@ function PdfViewEngine({ state }) {
                 <motion.span className="h-full rotate-180 cursor-pointer flex items-center justify-center">
                   <KeyboardDoubleArrowRightRoundedIcon
                     fontSize="large"
-                    onClick={jumpPrevPage}
                     color="action"
                   />
                 </motion.span>
@@ -246,7 +212,6 @@ function PdfViewEngine({ state }) {
                 <span className=" cursor-pointer flex items-center justify-center">
                   <KeyboardDoubleArrowRightRoundedIcon
                     fontSize="large"
-                    onClick={jumpNextPage}
                     color="action"
                   />
                 </span>
@@ -261,8 +226,8 @@ function PdfViewEngine({ state }) {
                 .sort(([a], [b]) => a - b)
                 .map(([page, ref]) => (
                   <motion.canvas
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
                     transition={{
                       duration: 0.1,
                       type: "spring",
@@ -294,7 +259,9 @@ const Dashboard = ({ state }) => {
         <Button onClick={() => state.setPageTotal(() => 20)}>
           set 20 canvas
         </Button>
-        <Button onClick={() => state.createPageCanvas(90)}>add 1 canvas</Button>
+        <Button onClick={() => state.setPageIndex(() => 99)}>
+          add 1 canvas
+        </Button>
         <Button onClick={() => navigate("/pdfview/")}>list page</Button>
       </div>
       <div className="w-full ">
@@ -312,6 +279,7 @@ const Dashboard = ({ state }) => {
 const BrowserList = ({ state }) => {
   const navigate = useNavigate();
   const changeUrl = (url) => {
+    state.setRenderStatus(() => new Map());
     state.setUrl(url);
     navigate("/pdfview/engine");
   };
@@ -346,9 +314,13 @@ const SidePdfViewEngine = () => {
 
 export default function PdfPage() {
   const [url, setUrl] = useState(() => DEFAULT_URL());
+  const [renderStatus, setRenderStatus] = useState(new Map());
+
   const pdfPageState = {
     url,
     setUrl,
+    renderStatus,
+    setRenderStatus,
   };
   return (
     <Routes>
@@ -396,6 +368,7 @@ const renderPage = async (
   await renderTask.promise;
   drawPage(context, canvas, _pageNumber);
   info("Finish render page : " + _pageNumber);
+  renderTask.cancel();
 };
 
 function drawPage(context, _canvas, _page) {
