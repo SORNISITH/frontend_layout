@@ -52,7 +52,6 @@ function PdfViewEngine({ state }) {
   );
   const [pdf, setPdf] = useState(null);
   const [isPdfReady, setPdfReady] = useState(null);
-  const [canvasRef, setCanvasRef] = useState([]);
   const [canvasMap, setCanvasMap] = useState(new Map());
   const containerRef = useRef(null);
   const loadPdf = async (_url) => {
@@ -94,7 +93,14 @@ function PdfViewEngine({ state }) {
       threshold: 0.1,
     },
   );
-
+  const jumpToPage = (target) => {
+    const _target = Number(target) || 0;
+    if (!_target || target <= 0 || target > pageMax) return;
+    document.getElementById(`canvas-${target}`).scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
   const watchLazy = () => {
     if (!canvasMap || !pdf) return;
     [...canvasMap.entries()].map(([index, ref]) => {
@@ -103,7 +109,9 @@ function PdfViewEngine({ state }) {
       }
     });
   };
-
+  const newUpperMap = new Map();
+  const middle = new Map();
+  const newDownMap = new Map();
   const createDefaultCanvas = (number) => {
     let defaultPage = 2; // up and down increase page
     let n = Number(number); // middle page
@@ -150,6 +158,7 @@ function PdfViewEngine({ state }) {
   useEffect(() => {
     createDefaultCanvas(pageCurrentView);
   }, [pageCurrentView]);
+
   useEffect(() => {
     watchLazy();
   }, [canvasMap]);
@@ -209,7 +218,10 @@ function PdfViewEngine({ state }) {
                 <span className=" cursor-pointer flex items-center justify-center">
                   {pageMax}
                 </span>
-                <span className=" cursor-pointer flex items-center justify-center">
+                <span
+                  //                 onClick={() => jumpToPage(pageCurrentView + 1)}
+                  className=" cursor-pointer flex items-center justify-center"
+                >
                   <KeyboardDoubleArrowRightRoundedIcon
                     fontSize="large"
                     color="action"
@@ -315,7 +327,6 @@ const SidePdfViewEngine = () => {
 export default function PdfPage() {
   const [url, setUrl] = useState(() => DEFAULT_URL());
   const [renderStatus, setRenderStatus] = useState(new Map());
-
   const pdfPageState = {
     url,
     setUrl,
