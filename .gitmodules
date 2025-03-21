@@ -1,3 +1,6 @@
 [submodule "frontend_app"]
 	path = frontend_app
 	url = git@github.com:SORNISITH/frontend_app.git
+[submodule "src/app"]
+	path = src/app
+	url = git@github.com:SORNISITH/frontend_app.git
