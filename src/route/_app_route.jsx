@@ -2,7 +2,7 @@ import { Routes, Route } from "react-router";
 ///  import page route
 import Default_Layout from "@/layouts/default_layout";
 import Login from "@/pages/auth/login";
-import PdfPage from "@/components/pdfview";
+import PdfPage from "@/app/pdfview";
 import Test from "@/components/test";
 //@ application route in main App
 export default function AppRoute() {
