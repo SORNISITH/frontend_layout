@@ -12,7 +12,9 @@ export default function MainPage() {
           <Button onClick={() => navigate("/test")} variant="contained">
             test
           </Button>
-
+          <Button onClick={() => navigate("/portfolio")} variant="contained">
+            portfolio
+          </Button>
           <Button onClick={() => navigate("/login")} variant="contained">
             Login
           </Button>
