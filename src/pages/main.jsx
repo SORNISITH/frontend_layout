@@ -1,6 +1,10 @@
 import { useNavigate } from "react-router";
 import { Button } from "@mui/material";
-export default function MainPage() {
+import { Routes, Route } from "react-router";
+///  import page route
+import NoteFound from "@/pages/404";
+
+function Main() {
   const navigate = useNavigate();
   return (
     <div className="w-full  h-full flex flex-col justify-center items-center">
@@ -21,5 +25,15 @@ export default function MainPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// application route in main App
+export default function MainPage() {
+  return (
+    <Routes>
+      <Route path="*" element={<NoteFound />} />
+      <Route path="/" element={<Main />} />
+    </Routes>
   );
 }

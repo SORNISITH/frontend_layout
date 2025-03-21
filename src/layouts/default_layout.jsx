@@ -1,4 +1,4 @@
-import MainRoute from "@/route/_main_route";
+import MainPage from "@/pages/main.jsx";
 //  wrap each page responsive iritial size ---------------------------------------
 export const ResponsiveLayout = ({ children }) => {
   return (
@@ -31,7 +31,7 @@ function Main_Layout() {
   return (
     <section className="w-[100%] h-[86%] flex flex-col overflow-none  items-center  bg-zinc-50">
       <ResponsiveLayout>
-        <MainRoute />
+        <MainPage />
       </ResponsiveLayout>
     </section>
   );
