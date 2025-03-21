@@ -21,6 +21,7 @@ import clsx from "clsx";
 ///cdn worker
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
+let activeCanvas = null; // prevent multi render canvas cuase error
 
 //WARNING :
 /// global this for fix render canvas error
@@ -43,7 +44,7 @@ function PdfViewEngine({ state }) {
   });
   // @pdf behavior
   const [pageTotal, setPageTotal] = useState(() => DEFAULT_TOTALPAGE());
-  const [pageIndex, setPageIndex] = useState(5);
+  const [pageIndex, setPageIndex] = useState(10);
   const [pageRotation, setPageRotation] = useState(0);
   const [pageScale, setPageScale] = useState(2);
   const [pageMax, setPageMax] = useState(null);
@@ -80,8 +81,8 @@ function PdfViewEngine({ state }) {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           const eleIndex = Number(entry.target.dataset.index);
-          if (eleIndex > pageMax || eleIndex < 1) return;
-          renderEnginePage(eleIndex);
+          if (eleIndex > pageMax || eleIndex < 1 || !canvasMap) return;
+          //renderEnginePage(eleIndex);
           setPageCurrentView(() => eleIndex);
           setLS("page_current_view", eleIndex);
         }
@@ -109,25 +110,26 @@ function PdfViewEngine({ state }) {
       }
     });
   };
-  const newUpperMap = new Map();
-  const middle = new Map();
-  const newDownMap = new Map();
   const createDefaultCanvas = (number) => {
-    let defaultPage = 2; // up and down increase page
+    info(canvasMap);
     let n = Number(number); // middle page
-    if (n <= defaultPage) n = defaultPage + 1;
-    const newMap = new Map(); //
     if (!pdf || n == 0 || !n) return;
-    if (n > defaultPage) {
-      for (let i = defaultPage; i >= 1; i--) {
-        newMap.set(n - i, createRef()); // Only create ref if it doesn't exist
+    let defaultPage = 5; // up and down increase page
+    const newMap = new Map(); //
+    for (let i = defaultPage; i >= 1; i--) {
+      const index = n - i;
+      if (index > 0) {
+        newMap.set(index, createRef()); // Only create ref if it doesn't exist
       }
     }
     newMap.set(n, createRef()); //
-    if (n <= pageMax - defaultPage)
-      for (let i = 1; i <= defaultPage; i++) {
-        newMap.set(n + i, createRef()); //
+    for (let i = 1; i <= defaultPage; i++) {
+      const index = n + i;
+      if (index < pageMax) {
+        newMap.set(index, createRef()); //
       }
+    }
+    info("triiger create canvas : ", newMap);
     setCanvasMap(() => newMap); // y
   };
 
@@ -146,7 +148,17 @@ function PdfViewEngine({ state }) {
       renderTask.set(page, true);
     }
   };
-
+  const renderEngineAll = async () => {
+    if (!pdf) return;
+    await Promise.all(
+      [...canvasMap.entries()].map(async ([p, ref]) => {
+        if (!renderTask.has(p)) {
+          await renderPage(pdf, ref, p, pageScale, pageRotation);
+          renderTask.set(p, true);
+        }
+      }),
+    );
+  };
   useEffect(() => {
     loadPdf(state.url);
     renderTask.clear();
@@ -160,7 +172,9 @@ function PdfViewEngine({ state }) {
   }, [pageCurrentView]);
 
   useEffect(() => {
+    info(pageMax);
     watchLazy();
+    renderEngineAll();
   }, [canvasMap]);
   useEffect(() => {
     localStorage.setItem("side_bar", JSON.stringify(toggleSideBar));
@@ -360,26 +374,37 @@ const renderPage = async (
   _pageRotation = 0,
 ) => {
   if (!_obj || !_canvas.current) return;
-  const canvas = _canvas.current;
-  const pdfPage = await _obj.getPage(_pageNumber);
-  const viewport = pdfPage?.getViewport({
-    scale: _pageScale,
-    rotation: _pageRotation,
-  });
-  const context = canvas?.getContext("2d");
-  canvas.height = viewport.height || 1;
-  canvas.width = viewport.width || 1;
-  const renderContext = {
-    canvasContext: context,
-    viewport: viewport,
-  };
+  if (activeCanvas && activeCanvas !== _canvas.current) {
+    console.warn("Another canvas is already rendering. Skipping...");
+    return;
+  }
+  try {
+    const canvas = _canvas.current;
 
-  // Render the page.
-  const renderTask = pdfPage.render(renderContext);
-  await renderTask.promise;
-  drawPage(context, canvas, _pageNumber);
-  info("Finish render page : " + _pageNumber);
-  renderTask.cancel();
+    const pdfPage = await _obj.getPage(_pageNumber);
+    const viewport = pdfPage?.getViewport({
+      scale: _pageScale,
+      rotation: _pageRotation,
+    });
+    const context = canvas?.getContext("2d");
+    canvas.height = viewport.height || 1;
+    canvas.width = viewport.width || 1;
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport,
+    };
+
+    // Render the page.
+    const renderTask = pdfPage.render(renderContext);
+    await renderTask.promise;
+    drawPage(context, canvas, _pageNumber);
+    info("Finish render page : " + _pageNumber);
+    renderTask.cancel();
+  } catch (error) {
+    err("error rending page", _pageNumber);
+  } finally {
+    activeCanvas = null;
+  }
 };
 
 function drawPage(context, _canvas, _page) {
