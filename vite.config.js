@@ -7,7 +7,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // https://vite.dev/config/
 export default defineConfig({
   resolve: {
-    alias: [{ find: "@", replacement: path.resolve(__dirname, "src") }],
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "src") },
+      { find: "$", replacement: path.resolve(__dirname, "src/app") },
+    ],
   },
   plugins: [react(), tailwindcss()],
   server: {

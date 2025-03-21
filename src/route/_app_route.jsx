@@ -1,8 +1,8 @@
 import { Routes, Route } from "react-router";
 ///  import page route
 import Default_Layout from "@/layouts/default_layout";
-import PdfPage from "@/app/pdfview";
-import Portfolio_App from "@/app/portfolio";
+import PdfPage from "$/pdfview";
+import Portfolio_App from "$/portfolio";
 
 import Test from "@/components/test";
 //@ application route in main App
