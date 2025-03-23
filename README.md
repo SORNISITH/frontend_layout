@@ -11,7 +11,7 @@ This is a starter template for a modern React project, utilizing a variety of to
 To set up the project, clone the repository and install the dependencies:
 
 ```shell
-git clone https://github.com/SORNISITH/frontend_generator.git
+git clone https://github.com/SORNISITH/frontend_layout.git
 ```
 
 ```shell
