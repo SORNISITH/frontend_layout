@@ -1,5 +1,5 @@
-import FuzzyText from "@/component/jsrepo/FuzzyText/FuzzyText";
-import LetterGlitch from "@/component/jsrepo/LetterGlitch/LetterGlitch";
+import FuzzyText from "@/components/jsrepo/FuzzyText/FuzzyText";
+import LetterGlitch from "@/components/jsrepo/LetterGlitch/LetterGlitch";
 export default function NoteFound({ docName }) {
   return (
     <div className="cursor-pointer w-full h-full  mt-10   flex flex-col justify-center item-center">

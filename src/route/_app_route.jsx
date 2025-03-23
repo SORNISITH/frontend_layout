@@ -12,7 +12,7 @@ export default function AppRoute() {
       <Route path="/*" element={<Default_Layout key={"app:default"} />} />
       <Route path="/forget" element={<h1>forget</h1>} />
       <Route path="/pdfview/*" element={<PdfPage />} />
-      <Route path="/background/*" element={<Portfolio_App />} />
+      <Route path="/portfolio/*" element={<Portfolio_App />} />
       <Route path="/test" element={<Test />} />
     </Routes>
   );
