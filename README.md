@@ -15,7 +15,7 @@ git clone https://github.com/SORNISITH/frontend_layout.git
 ```
 
 ```shell
-cd frontend_generator
+cd frontend_layout
 ```
 
 ```shell
