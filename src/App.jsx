@@ -9,9 +9,8 @@ export default function App() {
     window.removeEventListener("load", handleLoad); // Remove the listener after it's fired
   }
   window.addEventListener("load", handleLoad);
-
   return (
-    <div className="w-screen h-screen flex items-center  ">
+    <div className="w-screen h-screen  flex  items-center  ">
       <AppRoute />
     </div>
   );
